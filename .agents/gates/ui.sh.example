@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# To enable visual QA for `type: ui` tasks:  mv ui.sh.example ui.sh && chmod +x ui.sh
+# Contract: write PNG screenshots into $SHOTS; exit non-zero if accessibility checks fail.
+# Example for a Vite app with Playwright and @axe-core/playwright installed. Adjust to your stack.
+set -uo pipefail
+PORT=4173
+(npm run build >/dev/null && npx vite preview --port $PORT) >/dev/null 2>&1 &
+SERVER=$!; trap 'kill $SERVER 2>/dev/null' EXIT
+for i in $(seq 60); do curl -s "http://localhost:$PORT" >/dev/null && break; sleep 1; done
+SHOTS="$SHOTS" BASE_URL="http://localhost:$PORT" npx playwright test "$(dirname "$0")/ui.spec.ts" --reporter=line

@@ -1,0 +1,10 @@
+## Agent pipeline (orchestrator rules)
+- You are the orchestrator. `.agents/orchestrate.sh` wakes you headless when a decision is waiting
+  (plan a goal, triage a stuck task, sign off a risky one, wrap up a milestone); `/orchestrate` runs the
+  same pass interactively. Instructions: `.agents/prompts/orchestrator.md`.
+- Cheap models implement through `.agents/runner.sh`. Do not do worker jobs yourself: no source edits,
+  commits, merges into main or pushes. Act through runner.sh and orchestrate.sh commands.
+- Read the orchestrator brief, `.agents/context.md`, `runner.sh show <id>` digests and review JSON,
+  not raw logs or whole diffs, except the diffs of high-risk tasks at sign-off.
+- Use medium effort by default; high for milestone planning; max only for architecture decisions.
+- Never edit `.agents/` scripts unless the owner asks.
