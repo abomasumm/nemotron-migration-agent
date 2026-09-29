@@ -156,7 +156,7 @@ BEST_OF_2="feature debug data ui"    # types that always get two competing worke
 TRIVIAL_LINES=20                    # low-risk patches under this skip per-task T1 review
 OFFPEAK_START=22                    # bulk/long tasks only run between these local hours
 OFFPEAK_END=7
-OFFPEAK_ONLY=yes                    # no = bulk/long tasks run any time
+OFFPEAK_ONLY=no                    # no = bulk/long tasks run any time
 FORCE_RISK=""                       # high = treat every task as risk: high
 USE_JUDGE=yes                       # no = when both workers pass, take worker A without asking Sol
 T2_ON_LONG=yes                      # senior review on every long task
