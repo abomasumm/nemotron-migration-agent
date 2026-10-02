@@ -23,7 +23,7 @@ ok "mode: $ORCHESTRATOR (model $ORCH_MODEL, light $ORCH_LIGHT_MODEL, $CLAUDE_ORC
 [ -x "$AG/orchestrate.sh" ] && ok "orchestrate.sh" || bad "orchestrate.sh missing or not executable"
 [ -s "$ROOT/.claude/commands/orchestrate.md" ] && ok "/orchestrate command" || warn "/orchestrate command missing (.claude/commands/orchestrate.md)"
 if [ "$ORCHESTRATOR" = claude ]; then
-  grep -qs 'orchestrate.sh tick' "$AG/loop.sh" && ok "loop.sh runs the orchestrator tick" || warn "loop.sh doesn't run orchestrate.sh tick"
+  grep -qsE 'orchestrate\.sh"? tick' "$AG/loop.sh" && ok "loop.sh runs the orchestrator tick" || warn "loop.sh doesn't run orchestrate.sh tick"
   crontab -l 2>/dev/null | grep -q runner.sh && ! crontab -l 2>/dev/null | grep -q 'orchestrate.sh tick' &&
     warn "cron runs runner.sh but not orchestrate.sh tick (see setup.sh output)"
 fi
@@ -52,6 +52,10 @@ echo "Harness ($HARNESS)"
 if [ "$HARNESS" = omp ]; then
   omp models "$ROUTER" >"$LOGS/doctor.models" 2>&1 && grep -q . "$LOGS/doctor.models" &&
     ok "omp sees provider $ROUTER" || bad "omp models $ROUTER shows nothing (check ~/.omp/agent/models.yml)"
+  for e in ${OMP_EXTENSIONS:-}; do
+    [ -f "$e" ] && ok "extension $(basename "$(dirname "$(dirname "$e")")")" ||
+      bad "OMP_EXTENSIONS: $e not found (pipeline runs use --no-extensions, so $ROUTER models would be 'not found')"
+  done
 else
   pi --list-models "$ROUTER" >"$LOGS/doctor.models" 2>&1 && [ -s "$LOGS/doctor.models" ] &&
     ok "pi sees provider $ROUTER" || bad "pi --list-models $ROUTER shows nothing"

@@ -150,7 +150,9 @@ _wake() {
     echo "orchestrator cap reached"; return 0
   fi
   # The date is part of the signature, so an event Claude left unresolved gets one more look per day.
-  sig=$(printf '%s\n%s' "$(today)" "$ev" | cksum | cut -d' ' -f1); last=$(cat "$OD/last_sig" 2>/dev/null)
+  # Goal creation times are in it too, so a new goal that reuses a deleted goal's id still counts as new.
+  sig=$(printf '%s\n%s\n%s' "$(today)" "$ev" "$(for id in $(echo "$ev" | awk '$1=="plan"||$1=="wrapup"{print $2}'); do
+          fm_get "$GOALS/$id.md" created; done)" | cksum | cut -d' ' -f1); last=$(cat "$OD/last_sig" 2>/dev/null)
   if [ "$force" != force ]; then
     # Same unresolved events as the last successful wake: Claude already saw them. Don't pay twice.
     [ "$sig" = "$last" ] && { echo "events unchanged since last wake"; return 0; }

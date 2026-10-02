@@ -142,7 +142,7 @@ Goal statuses: `new -> packed -> planned -> wrapup -> done`.
 
 ## How the kit drives omp
 Each call is `omp -p --no-session --no-extensions --no-skills --no-rules --model <9router model> --thinking <level> --tools <set>`,
-with the prompt on stdin. Workers get `OMP_WORKER_TOOLS` (read, edit, write, bash, grep, find by default: add omp's LSP/AST
+with the prompt on stdin. Workers get `OMP_WORKER_TOOLS` (read, edit, write, bash, grep, glob by default: add omp's LSP/AST
 tools there if you want workers to use them), read-only jobs get `OMP_READ_TOOLS`, reviewers get `--no-tools`.
 Pinning the tools keeps omp's subagent/task tools from starting extra model calls. The repo map and context pack run
 in a throwaway checkout (`.worktrees/_readonly`), so they can't touch your working copy.

@@ -97,6 +97,7 @@ _run_once() {
       *) tf=(--tools "$tools") ;;
     esac
     read -ra of <<<"$OMP_FLAGS"
+    local e; for e in ${OMP_EXTENSIONS:-}; do of+=(-e "$e"); done
     ( cd "$cwd" && "$TIMEOUT" "$tmo" omp -p --no-session "${of[@]}" --model "$base" \
         ${lvl:+--thinking "$lvl"} "${tf[@]}" <"$pf" ) >"$out" 2>"$out.err"
     rc=$?

@@ -11,11 +11,14 @@ HARNESS=${HARNESS:-omp}                # omp or pi; override per run with HARNES
 # Flags added to every omp run: keep pipeline runs isolated from your personal omp extensions,
 # skills and rules (the kit sends AGENTS.md and its own prompts itself).
 OMP_FLAGS="--no-extensions --no-skills --no-rules"
+# Extensions loaded anyway (space-separated paths). --no-extensions also turns off omp plugins, and the
+# 9router provider comes from the pi-9router-ext plugin: without it every model is "not found".
+OMP_EXTENSIONS="$HOME/.omp/plugins/node_modules/pi-9router-ext/src/index.ts"
 # omp tool names for each access level (VERIFY against omp's docs; add LSP/AST tools here if you want
 # workers to use them). Pinning the set also keeps omp's subagent/task tools from starting extra
 # model calls on other providers.
-OMP_WORKER_TOOLS="read,edit,write,bash,grep,find"
-OMP_READ_TOOLS="read,grep,find"
+OMP_WORKER_TOOLS="read,edit,write,bash,grep,glob"
+OMP_READ_TOOLS="read,grep,glob"
 
 # ---- Connection ----
 ROUTER=9router                          # the provider name you gave 9router inside Pi
@@ -25,7 +28,7 @@ GOAT="$ROUTER/cmc"                      # 9router prefix for Command Code models
 # GO and GOAT must differ: the kit uses the prefix to count GOAT calls and to overflow between plans.
 # Error text that means "this model or pool can't take the call right now, try the next in its chain".
 # Add 9router's wording if it differs. Timeouts are NOT in here: a slow model is a task failure, not capacity.
-RATE_LIMIT_PATTERN='429|rate.?limit|usage limit|limit reached|quota|too many requests|overloaded|unavailable|503|502|credit|billing|model not found'
+RATE_LIMIT_PATTERN='429|rate.?limit|usage limit|limit reached|quota|too many requests|overloaded|service unavailable|temporarily unavailable|503|502|credit|billing|model not found'
 FREE_PREFIXES="$ROUTER/oc"            # free providers inside 9router (OpenCode Free)
 
 # ---- Profile: default | risky | fast ----
