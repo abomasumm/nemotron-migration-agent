@@ -90,7 +90,9 @@ CLAUDE_ESC=CLAUDE_OPUS              # CLAUDE_OPUS or CLAUDE_SONNET
 # `claude -p` when something needs a decision: a new goal to plan, a stuck task, a risky task to sign
 # off, or a finished milestone. Every wake is one call that handles all waiting events at once.
 # Claude decides; the scripts still do all the mechanics (workers, gates, fallbacks, caps, logs).
-ORCHESTRATOR=claude                 # claude, or cos (old behaviour: Muse triages stuck tasks, you run /plan and /signoff)
+ORCHESTRATOR=${ORCHESTRATOR:-claude} # claude, or cos (old behaviour: Muse triages stuck tasks, you run /plan and /signoff).
+                                    # Override per loop: tmux new -s agents 'ORCHESTRATOR=cos caffeinate -is .agents/loop.sh'
+                                    # Not part of profiles. Restart the loop to switch; finish or close open goals first.
 ORCH_MODEL=opus                     # planning, triage, sign-off (claude CLI model alias)
 ORCH_LIGHT_MODEL=sonnet             # wakes that only contain milestone wrap-ups
 CLAUDE_ORCH_DAILY_CAP=10            # orchestrator wakes per day, separate from CLAUDE_DAILY_CAP (retries)

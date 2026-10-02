@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent pipeline: architecture and workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef1f4; --panel:#f8f9fb; --ink:#1c2430; --muted:#5b6574; --line:#c9d0d9;
+  --cl:#5b3fd1; --cl-bg:#ebe6ff; --go:#0b7a75; --go-bg:#dcf1ee; --gt:#99590a; --gt-bg:#fbeacd;
+  --sc:#4b5563; --sc-bg:#e3e7ec; --arrow:#7a8594;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#121820; --panel:#18202a; --ink:#e6eaf0; --muted:#9aa5b4; --line:#2f3a47;
+  --cl:#b9a9ff; --cl-bg:#2a2250; --go:#6fd3cb; --go-bg:#0f3432; --gt:#f2bf6c; --gt-bg:#3a2a0e;
+  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; } }
+:root[data-theme="dark"]{
+  --paper:#121820; --panel:#18202a; --ink:#e6eaf0; --muted:#9aa5b4; --line:#2f3a47;
+  --cl:#b9a9ff; --cl-bg:#2a2250; --go:#6fd3cb; --go-bg:#0f3432; --gt:#f2bf6c; --gt-bg:#3a2a0e;
+  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; }
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:400 17px/1.55 "Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:48px 20px 72px}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.08;font-weight:700;letter-spacing:-0.02em;margin:0 0 14px;max-width:18ch}
+.lede{color:var(--muted);max-width:62ch;margin:0 0 26px}
+.key{display:flex;flex-wrap:wrap;gap:10px 22px;margin:0 0 44px;padding:0;list-style:none;font-size:15px}
+.key li{display:flex;align-items:center;gap:8px}
+.sw{width:14px;height:14px;border-radius:4px;border:1.5px solid}
+.sw.cl{background:var(--cl-bg);border-color:var(--cl)} .sw.go{background:var(--go-bg);border-color:var(--go)}
+.sw.gt{background:var(--gt-bg);border-color:var(--gt)} .sw.sc{background:var(--sc-bg);border-color:var(--sc)}
+section{margin:0 0 56px}
+h2{font-size:24px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px}
+section>p{max-width:66ch;margin:0 0 18px}
+.fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 14px}
+.fig svg{display:block;width:100%;height:auto;max-width:680px;margin:0 auto}
+svg text{font-family:"Schibsted Grotesk",system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;fill:var(--ink)}
+svg .t{font-size:14px;font-weight:700} svg .s{font-size:12px;fill:var(--muted)}
+svg .cl-t{font-size:13px;font-weight:500;text-anchor:start;fill:var(--muted)}
+svg .ct{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:4 4}
+svg .ar{fill:none;stroke:var(--arrow);stroke-width:1.5}
+svg .n rect{stroke-width:1.5}
+svg .n.cl rect{fill:var(--cl-bg);stroke:var(--cl)} svg .n.go rect{fill:var(--go-bg);stroke:var(--go)}
+svg .n.gt rect{fill:var(--gt-bg);stroke:var(--gt)} svg .n.sc rect{fill:var(--sc-bg);stroke:var(--sc)}
+svg .n text.t{font-size:14px;fill:var(--ink)}
+.notes{margin:16px 0 0;padding-left:20px;max-width:66ch}
+.notes li{margin:0 0 6px}
+.tw{overflow-x:auto;margin-top:18px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font-weight:700;background:transparent}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:700;white-space:nowrap}
+.map td:first-child{white-space:normal;width:34%}
+footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:18px;max-width:66ch}
+</style>
+</head>
+<body>
+<main>
+<h1>Your agent pipeline, as it stands</h1>
+<p class="lede">Opus plans and signs off. Cheap models on two separate usage pools do the building and checking, and scripts handle everything that doesn't need a model. The same four colours mean the same thing in every diagram.</p>
+<ul class="key">
+<li><span class="sw cl"></span>Claude Pro (Opus 5.5)</li>
+<li><span class="sw go"></span>OpenCode Go pool</li>
+<li><span class="sw gt"></span>Command Code GOAT pool</li>
+<li><span class="sw sc"></span>You, scripts and tools</li>
+</ul>
+
+<section>
+<h2>Architecture</h2>
+<p>Claude runs only through the official <code>claude</code> CLI on your Pro login. Every other model call goes through Oh My Pi (omp), then 9router, then the right pool. When a pool is full, calls move along each role's fallback combo, shown further down, including free models where that is safe.</p>
+<div class="fig"><svg viewBox="0 0 680 530" role="img" aria-labelledby="t6088 d6088"><title id="t6088">Current architecture</title><desc id="d6088">Opus plans; scripts call Pi through 9router to an OpenCode Go pool and a GOAT pool; Go overflows to GOAT.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect class="ct" x="40" y="20" width="600" height="100" rx="12"/><text class="cl-t" x="56" y="42">Claude Pro, official CLI only</text><g class="n cl"><rect x="190" y="52" width="300" height="56" rx="8"/><text class="t" x="340.0" y="71.0">Opus 5.5</text><text class="s" x="340.0" y="90.0">Plans, signs off, last retry</text></g><line class="ar" x1="340" y1="120" x2="340" y2="148" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="150" width="300" height="56" rx="8"/><text class="t" x="340.0" y="169.0">runner.sh and cos.sh</text><text class="s" x="340.0" y="188.0">Tasks, gates, stats</text></g><line class="ar" x1="340" y1="206" x2="340" y2="234" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="236" width="300" height="56" rx="8"/><text class="t" x="340.0" y="255.0">omp, then 9router</text><text class="s" x="340.0" y="274.0">RTK, fallbacks, free tiers</text></g><line class="ar" x1="300" y1="292" x2="185" y2="330" marker-end="url(#a)"/><line class="ar" x1="380" y1="292" x2="495" y2="330" marker-end="url(#a)"/><rect class="ct" x="40" y="332" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="354">OpenCode Go (ocg/), one pool</text><g class="n go"><rect x="45" y="372" width="135" height="56" rx="8"/><text class="t" x="112.5" y="391.0">DeepSeek V4.1</text><text class="s" x="112.5" y="410.0">Worker A</text></g><g class="n go"><rect x="190" y="372" width="135" height="56" rx="8"/><text class="t" x="257.5" y="391.0">Muse 1.3</text><text class="s" x="257.5" y="410.0">Worker B, review</text></g><g class="n go"><rect x="45" y="440" width="135" height="56" rx="8"/><text class="t" x="112.5" y="459.0">MiMo V2.6 Pro</text><text class="s" x="112.5" y="478.0">Tests, retry 1</text></g><g class="n go"><rect x="190" y="440" width="135" height="56" rx="8"/><text class="t" x="257.5" y="459.0">MiMo Flash</text><text class="s" x="257.5" y="478.0">Bulk tasks</text></g><rect class="ct" x="350" y="332" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="354">GOAT (cmc/), its own pool</text><g class="n gt"><rect x="355" y="372" width="135" height="56" rx="8"/><text class="t" x="422.5" y="391.0">GPT-5.6 Sol</text><text class="s" x="422.5" y="410.0">Judge, review</text></g><g class="n gt"><rect x="500" y="372" width="135" height="56" rx="8"/><text class="t" x="567.5" y="391.0">Kimi K3</text><text class="s" x="567.5" y="410.0">UI retry, review</text></g><g class="n gt"><rect x="355" y="440" width="135" height="56" rx="8"/><text class="t" x="422.5" y="459.0">Gemini Flash</text><text class="s" x="422.5" y="478.0">Visual QA</text></g><line class="ar" x1="330" y1="505" x2="348" y2="505" marker-end="url(#a)"/></svg></div>
+</section>
+
+<section>
+<h2>Milestone workflow</h2>
+<p>You touch the pipeline three times per milestone: the goal, the sign-off and the final merge. Everything in between runs on its own.</p>
+<div class="fig"><svg viewBox="0 0 680 524" role="img" aria-labelledby="t7265 d7265"><title id="t7265">Milestone workflow</title><desc id="d7265">Goal, context pack, plan, automated runner with daily triage, sign-off, merge.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="190" y="20" width="300" height="56" rx="8"/><text class="t" x="340.0" y="39.0">You set a goal</text><text class="s" x="340.0" y="58.0">One milestone at a time</text></g><line class="ar" x1="340" y1="76" x2="340" y2="102" marker-end="url(#a)"/><g class="n go"><rect x="190" y="104" width="300" height="56" rx="8"/><text class="t" x="340.0" y="123.0">cos.sh pack</text><text class="s" x="340.0" y="142.0">Muse summarises the code</text></g><line class="ar" x1="340" y1="160" x2="340" y2="186" marker-end="url(#a)"/><g class="n cl"><rect x="190" y="188" width="300" height="56" rx="8"/><text class="t" x="340.0" y="207.0">/plan in Claude Code</text><text class="s" x="340.0" y="226.0">Opus writes task files</text></g><line class="ar" x1="340" y1="244" x2="340" y2="270" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="272" width="300" height="56" rx="8"/><text class="t" x="340.0" y="291.0">runner.sh every 5 min</text><text class="s" x="340.0" y="310.0">cron or loop.sh</text></g><line class="ar" x1="340" y1="328" x2="340" y2="354" marker-end="url(#a)"/><g class="n go"><rect x="520" y="272" width="130" height="56" rx="8"/><text class="t" x="585.0" y="291.0">cos.sh daily</text><text class="s" x="585.0" y="310.0">Triage, status</text></g><line class="ar" x1="518" y1="300" x2="492" y2="300" marker-end="url(#a)"/><g class="n cl"><rect x="190" y="356" width="300" height="56" rx="8"/><text class="t" x="340.0" y="375.0">/signoff in Claude Code</text><text class="s" x="340.0" y="394.0">Opus approves risky work</text></g><line class="ar" x1="340" y1="412" x2="340" y2="438" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="440" width="300" height="56" rx="8"/><text class="t" x="340.0" y="459.0">You merge to main</text><text class="s" x="340.0" y="478.0">From the agents branch</text></g></svg></div>
+</section>
+
+<section>
+<h2>What happens to each task</h2>
+<p>Three agents build in parallel. The tests must fail on the old code before they count, the gates check tests, scope and security, and a reviewer from a different model family reads every change. Anything that fails climbs the retry chain on the right.</p>
+<div class="fig"><svg viewBox="0 0 680 640" role="img" aria-labelledby="t2499 d2499"><title id="t2499">Per-task pipeline</title><desc id="d2499">Context pack, then test-writer and two workers in parallel, gates, judge, first and senior review, merge; failures climb MiMo Pro, Sol, Opus.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="240" y="20" width="200" height="56" rx="8"/><text class="t" x="340.0" y="39.0">Context pack</text><text class="s" x="340.0" y="58.0">Script, no model</text></g><path class="ar" d="M340 76 L340 92 L130 92 L130 108" marker-end="url(#a)"/><line class="ar" x1="340" y1="76" x2="340" y2="108" marker-end="url(#a)"/><path class="ar" d="M340 92 L550 92 L550 108" marker-end="url(#a)"/><g class="n go"><rect x="40" y="110" width="180" height="56" rx="8"/><text class="t" x="130.0" y="129.0">Test-writer</text><text class="s" x="130.0" y="148.0">MiMo V2.6 Pro</text></g><g class="n go"><rect x="250" y="110" width="180" height="56" rx="8"/><text class="t" x="340.0" y="129.0">Worker A</text><text class="s" x="340.0" y="148.0">DeepSeek V4.1</text></g><g class="n go"><rect x="460" y="110" width="180" height="56" rx="8"/><text class="t" x="550.0" y="129.0">Worker B</text><text class="s" x="550.0" y="148.0">Muse 1.3</text></g><path class="ar" d="M130 166 L130 188 L550 188 L550 166"/><line class="ar" x1="340" y1="166" x2="340" y2="208" marker-end="url(#a)"/><g class="n sc"><rect x="240" y="210" width="200" height="56" rx="8"/><text class="t" x="340.0" y="229.0">Gates</text><text class="s" x="340.0" y="248.0">Tests, scope, security</text></g><line class="ar" x1="340" y1="266" x2="340" y2="298" marker-end="url(#a)"/><g class="n gt"><rect x="240" y="300" width="200" height="56" rx="8"/><text class="t" x="340.0" y="319.0">Judge</text><text class="s" x="340.0" y="338.0">Sol, if both pass</text></g><line class="ar" x1="340" y1="356" x2="340" y2="388" marker-end="url(#a)"/><g class="n go"><rect x="240" y="390" width="200" height="56" rx="8"/><text class="t" x="340.0" y="409.0">First review</text><text class="s" x="340.0" y="428.0">Muse or MiMo Pro</text></g><line class="ar" x1="340" y1="446" x2="340" y2="478" marker-end="url(#a)"/><g class="n gt"><rect x="240" y="480" width="200" height="56" rx="8"/><text class="t" x="340.0" y="499.0">Senior review</text><text class="s" x="340.0" y="518.0">Sol, risky tasks</text></g><line class="ar" x1="340" y1="536" x2="340" y2="568" marker-end="url(#a)"/><g class="n sc"><rect x="240" y="570" width="200" height="56" rx="8"/><text class="t" x="340.0" y="589.0">Merge or sign-off</text><text class="s" x="340.0" y="608.0">Opus signs risky work</text></g><path class="ar" d="M440 238 L560 238 L560 298" marker-end="url(#a)"/><g class="n go"><rect x="480" y="300" width="160" height="56" rx="8"/><text class="t" x="560.0" y="319.0">MiMo V2.6 Pro</text><text class="s" x="560.0" y="338.0">Retry 1</text></g><line class="ar" x1="560" y1="356" x2="560" y2="388" marker-end="url(#a)"/><g class="n gt"><rect x="480" y="390" width="160" height="56" rx="8"/><text class="t" x="560.0" y="409.0">GPT-5.6 Sol</text><text class="s" x="560.0" y="428.0">Retry 2</text></g><line class="ar" x1="560" y1="446" x2="560" y2="478" marker-end="url(#a)"/><g class="n cl"><rect x="480" y="480" width="160" height="56" rx="8"/><text class="t" x="560.0" y="499.0">Opus 5.5</text><text class="s" x="560.0" y="518.0">Retry 3, 2 a day</text></g></svg></div>
+<div class="tw"><table>
+<thead><tr><th>Task type</th><th>Builds it</th><th>Tests</th><th>First review</th><th>Retry chain</th></tr></thead>
+<tbody>
+<tr><td>feature, debug, data</td><td>DeepSeek V4.1 and Muse compete</td><td>MiMo V2.6 Pro</td><td>Muse or MiMo Pro, whichever didn't write the winner</td><td>MiMo V2.6 Pro, Sol, Opus</td></tr>
+<tr><td>ui</td><td>DeepSeek V4.1 and Muse compete, plus Gemini visual QA</td><td>MiMo V2.6 Pro, if there's logic</td><td>Same as above</td><td>Kimi K3, Sol, Opus</td></tr>
+<tr><td>patch</td><td>DeepSeek V4.1</td><td>MiMo V2.6 Pro</td><td>Muse; skipped under 20 lines, batch-reviewed later</td><td>Muse, MiMo V2.6 Pro, Sol, Opus</td></tr>
+<tr><td>long</td><td>DeepSeek V4.1, overnight</td><td>MiMo V2.6 Pro</td><td>Muse, then Sol always</td><td>Muse, MiMo V2.6 Pro, Sol, Opus</td></tr>
+<tr><td>bulk</td><td>MiMo V2.6 Flash, overnight</td><td>None</td><td>Batched at milestone end</td><td>DeepSeek V4.1, Muse</td></tr>
+<tr><td>any, risk high</td><td>Always two competing workers</td><td>As for its type</td><td>Plus Sol senior review and your Opus sign-off</td><td>As for its type</td></tr>
+</tbody></table></div>
+<ul class="notes">
+<li>When Sol wrote the code (retry 2), Kimi K3 does the senior review instead, so no model reviews its own family.</li>
+<li>Opus retries are capped at 2 a day. Tasks that hit the cap wait and resume the next day.</li>
+<li>DeepSeek, Muse and Sol run at xhigh effort, the setting their benchmark scores were measured at.</li>
+<li>If GOAT is full, visual QA falls back to GLM-5.3 Flash on Go, which reads images better than DeepSeek Vision.</li>
+</ul>
+</section>
+
+<section>
+<h2>Profiles</h2>
+<p>One switch changes how much checking the pipeline does. Set the repo's usual profile in <code>routing.sh</code>, override it for a single run with <code>PROFILE=fast .agents/runner.sh run</code>, or for one task with <code>profile: risky</code> in its front matter.</p>
+<div class="tw"><table>
+<thead><tr><th>Profile</th><th>Use it for</th><th>What changes</th></tr></thead>
+<tbody>
+<tr><td>default</td><td>Most work, like the dashboard backlogs</td><td>Everything on this page as drawn: two workers on feature, debug, data and UI tasks; senior review on risky and long tasks; one task at a time.</td></tr>
+<tr><td>risky</td><td>Auth, payments, migrations, production data</td><td>Every task is treated as high risk: two workers, the judge, Sol's senior review and your Opus sign-off. No review shortcuts, one task at a time. Uses noticeably more Opus quota.</td></tr>
+<tr><td>fast</td><td>Prototypes, internal tools, urgent backlogs</td><td>One worker unless a task is marked high risk, no judge, no off-peak wait, three tasks in parallel, one-minute polling, shorter pauses, and DeepSeek at high instead of xhigh effort.</td></tr>
+</tbody></table></div>
+</section>
+
+<section>
+<h2>When to use this pipeline</h2>
+<p>The pipeline pays off when work can be written down in advance and checked automatically. It trades speed for quality and low attention: a typical task takes 15 to 30 minutes, and a 10-task milestone a few hours. Use it when every one of these is true:</p>
+<ul class="notes">
+<li>You can describe each change as a brief with acceptance criteria a test could check.</li>
+<li>The repo has tests that run, or you're willing to add them first.</li>
+<li>You have several tasks, not one, and don't need the result within the hour.</li>
+<li>The main open question is how to build it, not what it should look like or do.</li>
+</ul>
+<p>If any of these is false, work interactively instead: you and one strong model in a tight loop, then hand the settled, well-defined parts to the pipeline.</p>
+
+<h2 style="margin-top:34px">Which profile</h2>
+<div class="tw"><table class="map">
+<thead><tr><th>Situation</th><th>Profile</th></tr></thead>
+<tbody>
+<tr><td>Ordinary features, bug fixes and data transforms in a tested codebase</td><td>default</td></tr>
+<tr><td>Anything touching auth, payments, permissions, schema migrations, backfills or production data</td><td>risky, per task or per milestone</td></tr>
+<tr><td>Prototypes, internal tools, docs and content, or a backlog you need cleared today</td><td>fast</td></tr>
+<tr><td>Unclear requirements, visual design, urgent fixes, one-line changes, research</td><td>Not the pipeline: work interactively</td></tr>
+</tbody></table></div>
+
+<h2 style="margin-top:34px">Recommended approach by project type</h2>
+<div class="tw"><table class="map">
+<thead><tr><th>Project type</th><th>Recommended approach</th><th>Pattern</th></tr></thead>
+<tbody>
+<tr><td>Feature backlog in an existing, tested codebase</td><td>This pipeline, default profile; risky for auth or data-model changes.</td><td>Orchestrator-workers with a generate-and-verify loop</td></tr>
+<tr><td>New project, greenfield</td><td>Decide architecture interactively with Opus, have one long task scaffold the skeleton and test harness, then switch to the pipeline.</td><td>Plan first, then orchestrator-workers</td></tr>
+<tr><td>Data engineering</td><td>Pipeline, default profile, with a data gate that runs transforms on small synthetic data and checks schema, row counts and nulls. Risky profile for migrations and backfills.</td><td>Orchestrator-workers plus contract tests</td></tr>
+<tr><td>Design-led UI or a portfolio</td><td>Iterate on the look interactively (Opus in Claude Code or Claude Design), reviewing screenshots each round. Send implementation chores (components, content, accessibility fixes) to the pipeline, fast or default.</td><td>Human-in-the-loop iteration, then pipeline</td></tr>
+<tr><td>Urgent production bug</td><td>One agent interactively: DeepSeek or Muse in Pi, Opus for hard ones. Reproduce first, fix, run the gate scripts by hand. Afterwards queue a debug task to add the regression test.</td><td>Single agent, reproduce-fix-verify</td></tr>
+<tr><td>Large refactor or migration</td><td>Opus plans it. Mechanical parts become a script that rewrites the code, or bulk tasks; the rest a chain of tasks linked with <code>after:</code>. Risky profile if shared core code changes.</td><td>Plan, then deterministic transform or task chain</td></tr>
+<tr><td>Prototype, hackathon, internal tool</td><td>Fast profile, or interactive if it changes every hour.</td><td>Single worker, light verification</td></tr>
+<tr><td>Legacy code without tests</td><td>First add tests that pin down current behaviour, interactively or as pipeline tasks, then use the default profile.</td><td>Tests first, then pipeline</td></tr>
+<tr><td>Research, spikes, library comparisons</td><td>Chat or notebooks. Nothing to test until you know what you want.</td><td>Interactive exploration</td></tr>
+<tr><td>Docs, READMEs, content updates</td><td>Bulk or patch tasks, fast profile.</td><td>Single worker, batched review</td></tr>
+</tbody></table></div>
+
+<h2 style="margin-top:34px">Your four projects</h2>
+<div class="tw"><table class="map">
+<thead><tr><th>Project</th><th>Approach</th></tr></thead>
+<tbody>
+<tr><td>Dashboard repo 1 and 2</td><td>Pipeline, default profile. Mark auth, permissions and data-model changes <code>profile: risky</code>.</td></tr>
+<tr><td>Data engineering project</td><td>Interactive with Opus for the first week (storage, orchestrator, schema, skeleton), then the pipeline on default. Risky for migrations and backfills.</td></tr>
+<tr><td>Portfolio</td><td>Interactive for the design. Pipeline on fast for implementation chores once the look is settled.</td></tr>
+</tbody></table></div>
+</section>
+
+<section>
+<h2>Harnesses compared</h2>
+<p>A harness is the program that runs the model: it gives it tools, edits files and keeps the session. Your setup uses Claude Code for Opus and Oh My Pi for everything else, with plain Pi as the fallback. The two web UIs you use, ompweb and pi-web, are closely related: ompweb is a fork of pi-web adapted for Oh My Pi. They don't change what the agent can do; they change how you work with it.</p>
+<div class="tw"><table class="map">
+<thead><tr><th>&nbsp;</th><th>Oh My Pi + ompweb</th><th>Pi + pi-web</th><th>Claude Code</th></tr></thead>
+<tbody>
+<tr><td>Models in your setup</td><td>Everything on Go and GOAT through 9router</td><td>Everything on Go and GOAT through 9router</td><td>Claude only, on your Pro login</td></tr>
+<tr><td>What it costs you</td><td>Go and GOAT pools (flat fee)</td><td>Go and GOAT pools (flat fee)</td><td>Pro quota, the scarcest thing you have</td></tr>
+<tr><td>Coding tools</td><td>The richest: language-server code navigation, a real debugger, hash-anchored edits that cut output tokens, Python and JavaScript kernels, subagents</td><td>Minimal core (read, edit, write, bash) plus extensions</td><td>Mature agent loop, subagents, hooks, slash commands, plan mode, permission controls</td></tr>
+<tr><td>Web UI</td><td>ompweb: live chat, session history by project, fork a session or branch from any message, switch git worktrees, file and image preview beside the chat, context and cost display, and settings for models, skills, plugins and MCP servers</td><td>pi-web: live chat and session history beside the CLI, project navigation, and model, API key and skill management</td><td>Official desktop and mobile apps; start or check sessions from your phone</td></tr>
+<tr><td>Access control</td><td>Localhost by default; optional password sign-in (<code>OMP_WEB_PASSWORD</code>)</td><td>Localhost by default; optional password (<code>PI_WEB_PASSWORD</code>)</td><td>Your Claude account</td></tr>
+<tr><td>Scripting</td><td><code>omp -p</code>, RPC mode, ACP</td><td><code>pi -p</code>, RPC mode</td><td><code>claude -p</code></td></tr>
+<tr><td>Stability</td><td>Very fast release pace; ompweb can update omp for you</td><td>Small and steady</td><td>Official, stable</td></tr>
+<tr><td>Role in the kit</td><td>Default harness for every cheap-model call</td><td>Drop-in fallback (<code>HARNESS=pi</code>); Paperclip's Pi adapter</td><td>/plan, /signoff and the last retry only</td></tr>
+</tbody></table></div>
+
+<h2 style="margin-top:34px">When to use which harness</h2>
+<div class="tw"><table class="map">
+<thead><tr><th>Situation</th><th>Harness</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Planning milestones, signing off, architecture decisions</td><td>Claude Code</td><td>Opus leads every coding benchmark, and these few decisions shape everything downstream.</td></tr>
+<tr><td>Design-led work where quality matters most (portfolio look, data project's first week)</td><td>Claude Code</td><td>Worth the Pro quota for short, high-leverage sessions. Watch the weekly cap.</td></tr>
+<tr><td>The pipeline's workers, reviewers and chief of staff</td><td>omp CLI (run by the kit)</td><td>Flat-fee models, pinned tools, token-saving edits, scriptable one-shot mode.</td></tr>
+<tr><td>Interactive work with cheap models: urgent bugs, spikes, refactors</td><td>omp + ompweb</td><td>omp's debugger and code navigation, with files and previews beside the chat. Fork a session to try a second approach without losing the first.</td></tr>
+<tr><td>Checking what a pipeline task actually did</td><td>ompweb</td><td>Switch to the task's worktree (<code>.worktrees/T-012</code>) and browse its files and diff. Pipeline runs don't save chat sessions, so the files are what you inspect.</td></tr>
+<tr><td>Reviewing a design change visually</td><td>omp + ompweb</td><td>Image and PDF preview next to the conversation.</td></tr>
+<tr><td>Pairing, or watching a session from another device</td><td>omp <code>/collab</code></td><td>A browser link to the live session, view-only or shared control.</td></tr>
+<tr><td>omp broke after an update</td><td>Pi + pi-web</td><td>Same models and nearly the same web UI; set <code>HARNESS=pi</code> and the kit carries on.</td></tr>
+<tr><td>Quick question or tiny change with a cheap model</td><td>omp or Pi, whichever is open</td><td>Either is fine; don't spend Pro quota on it.</td></tr>
+</tbody></table></div>
+<ul class="notes">
+<li>Both web UIs drive an agent that can run any command on the machine. They bind to localhost by default; set a password, and for remote use go through a VPN or an HTTPS reverse proxy, never a public port.</li>
+<li>ompweb's Models panel edits the same <code>~/.omp/agent/models.yml</code> the kit relies on. Keep the 9router entries, including the DeepSeek compat settings, if you change models there.</li>
+<li>Claude Code only ever runs on your Pro login. Pointing it at 9router or another provider would take it off the subscription.</li>
+</ul>
+</section>
+
+<section>
+<h2>Fallback combos</h2>
+<p>When a model or pool is full, the call moves along its role's chain: the same model on the other plan first, then a free option where a weaker answer is safe. Workers never drop to free models; if every option is full, the task pauses for 30 minutes and picks up again on its own.</p>
+<div class="tw"><table>
+<thead><tr><th>Role</th><th>First choice</th><th>Then</th><th>Then</th><th>If all full</th></tr></thead>
+<tbody>
+<tr><td>Worker A</td><td>DeepSeek V4.1 (Go)</td><td>DeepSeek V4.1 (GOAT)</td><td>None</td><td>Pause 30 min</td></tr>
+<tr><td>Worker B</td><td>Muse 1.3 (Go)</td><td>Muse 1.3 (GOAT)</td><td>None</td><td>Pause 30 min</td></tr>
+<tr><td>Test-writer, retry 1</td><td>MiMo V2.6 Pro (Go)</td><td>MiMo V2.6 Pro (GOAT)</td><td>None</td><td>Pause 30 min</td></tr>
+<tr><td>First review</td><td>Muse or MiMo Pro (Go)</td><td>Same model (GOAT)</td><td>GLM-5.3 Flash (Go, then GOAT)</td><td>Pause 30 min</td></tr>
+<tr><td>Judge, senior review, retry 2</td><td>GPT-5.6 Sol (GOAT)</td><td>MiMo V2.6 Pro (Go)</td><td>MiMo V2.6 Pro (GOAT)</td><td>Pause 30 min</td></tr>
+<tr><td>UI retry, review of Sol's code</td><td>Kimi K3 (GOAT)</td><td>Kimi K3 (Go)</td><td>MiMo V2.6 Pro (Go)</td><td>Pause 30 min</td></tr>
+<tr><td>Visual QA</td><td>Gemini 3.8 Flash (GOAT)</td><td>GLM-5.3 Flash (Go)</td><td>None</td><td>Pause 30 min</td></tr>
+<tr><td>Bulk edits</td><td>MiMo V2.6 Flash (Go)</td><td>MiMo V2.6 Flash (GOAT)</td><td>Space Bunny Free (Go, free)</td><td>Pause 30 min</td></tr>
+<tr><td>Chief of staff, repo map</td><td>Muse 1.3 (Go)</td><td>Muse 1.3 (GOAT)</td><td>GLM-5.3 Flash (Go), then OpenCode Free</td><td>Pause 30 min</td></tr>
+<tr><td>Last retry</td><td>Opus 5.5 (Pro)</td><td>None</td><td>None</td><td>Waits for the next day's allowance</td></tr>
+</tbody></table></div>
+<ul class="notes">
+<li>GOAT options are skipped once the daily GOAT call cap is reached.</li>
+<li>GLM-5.3 Flash is the general backup because no worker uses its family, so it can review anyone's code.</li>
+</ul>
+<h2 style="margin-top:34px">Free models considered</h2>
+<div class="tw"><table>
+<thead><tr><th>Free option in 9router</th><th>Verdict</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Vertex AI ($300 credits, 90 days)</td><td>Not used</td><td>Left out at your request.</td></tr>
+<tr><td>Go free models (Space Bunny, LongCat 2.5 Preview)</td><td>Bulk backup only</td><td>Unlimited and outside the pool, but anonymous and unbenchmarked. Bulk edits are gated, so a weak result is caught.</td></tr>
+<tr><td>OpenCode Free</td><td>Last resort for status and maps</td><td>No login, but the model list changes without notice and prompts may be logged.</td></tr>
+<tr><td>Kiro (50 credits a month)</td><td>Not used</td><td>Too few credits, older models, and routing its login through a proxy risks the account.</td></tr>
+<tr><td>Antigravity and Claude Code logins</td><td>Not used</td><td>Subscription logins must not go through 9router.</td></tr>
+<tr><td>OpenRouter free models</td><td>Not used</td><td>Need a key, low daily caps, and logged prompts. Add later if you want more backup.</td></tr>
+</tbody></table></div>
+<ul class="notes"><li>iFlow, Qwen Code and Gemini CLI free tiers were discontinued in 2026.</li></ul>
+</section>
+
+<section>
+<h2>If you move to Paperclip</h2>
+<p>Paperclip replaces the runner, the task files and cron. The models, prompts, routing rules and gate scripts carry over unchanged. Keep the org flat: you are the board, and no management layer sits between the CTO and the seats.</p>
+<div class="fig"><svg viewBox="0 0 680 310" role="img" aria-labelledby="t4183 d4183"><title id="t4183">Paperclip layout</title><desc id="d4183">You as board; Opus CTO and retry engineer; Muse chief of staff; Go build seats, GOAT QA seats, dispatcher and gatekeeper scripts.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="260" y="20" width="160" height="56" rx="8"/><text class="t" x="340.0" y="39.0">You, the board</text><text class="s" x="340.0" y="58.0">Goals, approvals</text></g><path class="ar" d="M340 76 L340 98 L305 98 L305 118" marker-end="url(#a)"/><path class="ar" d="M340 98 L545 98 L545 118" marker-end="url(#a)"/><g class="n cl"><rect x="40" y="120" width="150" height="56" rx="8"/><text class="t" x="115.0" y="139.0">Retry engineer</text><text class="s" x="115.0" y="158.0">Opus, 2 a day</text></g><g class="n cl"><rect x="215" y="120" width="180" height="56" rx="8"/><text class="t" x="305.0" y="139.0">CTO</text><text class="s" x="305.0" y="158.0">Opus, plans, signs</text></g><line class="ar" x1="215" y1="148" x2="192" y2="148" marker-end="url(#a)"/><g class="n go"><rect x="450" y="120" width="190" height="56" rx="8"/><text class="t" x="545.0" y="139.0">Chief of staff</text><text class="s" x="545.0" y="158.0">Muse, triage, status</text></g><path class="ar" d="M305 176 L305 208 L107 208 L107 238" marker-end="url(#a)"/><path class="ar" d="M305 208 L262 208 L262 238" marker-end="url(#a)"/><path class="ar" d="M545 176 L545 208 L417 208 L417 238" marker-end="url(#a)"/><path class="ar" d="M545 208 L572 208 L572 238" marker-end="url(#a)"/><g class="n go"><rect x="40" y="240" width="135" height="56" rx="8"/><text class="t" x="107.5" y="259.0">Build seats</text><text class="s" x="107.5" y="278.0">Go via 9router</text></g><g class="n gt"><rect x="195" y="240" width="135" height="56" rx="8"/><text class="t" x="262.5" y="259.0">QA seats</text><text class="s" x="262.5" y="278.0">GOAT via 9router</text></g><g class="n sc"><rect x="350" y="240" width="135" height="56" rx="8"/><text class="t" x="417.5" y="259.0">Dispatcher</text><text class="s" x="417.5" y="278.0">routing.sh rules</text></g><g class="n sc"><rect x="505" y="240" width="135" height="56" rx="8"/><text class="t" x="572.5" y="259.0">Gatekeeper</text><text class="s" x="572.5" y="278.0">Gate scripts</text></g></svg></div>
+<div class="tw"><table class="map">
+<thead><tr><th>Today</th><th>In Paperclip</th></tr></thead>
+<tbody>
+<tr><td>Task files in .agents/tasks/</td><td>Issues, labelled with type and risk</td></tr>
+<tr><td>runner.sh scheduling and retry chain</td><td>Dispatcher, a process agent running the same routing.sh</td></tr>
+<tr><td>gates/*.sh</td><td>Gatekeeper, a process agent running the same scripts</td></tr>
+<tr><td>cos.sh</td><td>Chief of staff on Muse, with the same prompts</td></tr>
+<tr><td>/plan and /signoff</td><td>CTO assignments and Paperclip approvals</td></tr>
+<tr><td>cron or loop.sh</td><td>Heartbeats and wake-on-event; Opus agents wake only on assignment</td></tr>
+<tr><td>Overflow in lib.sh</td><td>A small wrapper script the Pi adapter calls instead of pi</td></tr>
+</tbody></table></div>
+<ul class="notes">
+<li>Build seats: DeepSeek V4.1, Muse 1.3, MiMo V2.6 Pro and MiMo Flash, one Paperclip agent per model, role passed as a skill.</li>
+<li>QA seats: GPT-5.6 Sol, Kimi K3 and Gemini 3.8 Flash.</li>
+<li>Opus agents use the claude_local adapter; dispatcher and gatekeeper use process. Paperclip ships a Pi adapter, not an omp one, so seats and the chief of staff would either use pi_local through 9router or a process adapter that calls the kit's omp wrapper.</li>
+</ul>
+</section>
+
+<footer>Routing reflects September 2026 data from LiveBench (full table), llm-stats (full leaderboard including agents, tools and vision), Artificial Analysis and CursorBench 4.0. After two weeks, <code>.agents/stats.sh 14</code> shows how each model does on your own code; let that override the leaderboards.</footer>
+</main>
+</body>
+</html>

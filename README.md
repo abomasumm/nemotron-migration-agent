@@ -37,7 +37,7 @@ git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m
 
 ## Running a milestone
 ```
-tmux new -s agents '.agents/loop.sh'          # once: scheduler + orchestrator tick every LOOP_SLEEP
+tmux new -s agents 'caffeinate -is .agents/loop.sh'   # once: scheduler + orchestrator tick every LOOP_SLEEP (caffeinate keeps the Mac awake)
 .agents/orchestrate.sh goal "what to build"   # you: queue the goal
     # tick: Muse packs context -> Claude wakes, writes .agents/tasks/T-NNN.md (goal: G-001), marks it planned
     # runner: builds, tests, gates, reviews, merges into `agents`
@@ -50,8 +50,32 @@ Anything Claude hands back to you is `needs-you` in `runner.sh status`, with the
 and in `.agents/logs/orchestrator.log`.
 
 Driving it by hand instead: `claude` then `/orchestrate` runs one orchestrator pass with you watching;
-`/plan` and `/signoff` still work on their own. Set `ORCHESTRATOR=cos` in routing.sh for the old behaviour
-(Muse triages stuck tasks, you plan and sign off).
+`/plan` and `/signoff` still work on their own.
+
+Fallback mode (`ORCHESTRATOR=cos`, the v3 behaviour) is for when Pro quota is short or the `claude` CLI is
+broken: Muse triages stuck tasks once a day, and you run `/plan` and `/signoff` yourself. Switch by
+restarting the loop: `tmux new -s agents 'ORCHESTRATOR=cos caffeinate -is .agents/loop.sh'` (or edit
+routing.sh to make it permanent). In this mode `orchestrate.sh goal` refuses, because nothing would plan the
+goal, and the loop warns about goals left open from claude mode. Merge conflicts are still re-queued every pass.
+A middle ground is `ORCHESTRATOR=claude` with `ORCH_AUTO_SIGNOFF=no`: Claude plans and triages, you sign off.
+
+## One repo or several
+It's one system. Every repo runs this kit unchanged, with its own loop, task queue and Claude orchestrator.
+Going from one repo to several adds a layer above the repos. Nothing inside a repo changes:
+
+| | One repo | Several repos |
+|---|---|---|
+| Kit in each repo | as above | as above, installed in each |
+| `~/code/ops/repos.txt` | one line | one line per repo |
+| Who queues goals | you (or DeepSeek Harness through `kitctl`, on your say) | DeepSeek Harness's scheduled check, from `~/code/ops/backlog.md` |
+| Per-repo caps | routing.sh defaults | lowered per repo in `.agents/local.sh` so all repos fit one Pro plan, one Go pool and one GOAT pool |
+
+Start with one repo. Add the portfolio layer once a second repo has run a few goals cleanly. `kitctl`, the
+backlog, the scheduled check and `local.sh` are designed but not built yet.
+
+`docs/architecture.html` describes the whole system. A switch at the top changes the view between
+**One repo** and **Several repos**. Open it with `#multi` at the end of the URL to start on the
+several-repos view.
 
 ## How the orchestrator spends Pro quota
 | Setting (routing.sh) | Default | What it does |
@@ -75,9 +99,9 @@ Set the repo's usual profile with `PROFILE=` near the top of `.agents/routing.sh
 
 | Profile | Use it for | What changes |
 |---|---|---|
-| `default` | Most work | Best-of-2 on feature/debug/data/ui, Sol senior review on risky and long tasks, one task at a time, bulk/long wait for off-peak. |
+| `default` | Most work | Best-of-2 on feature/debug/data/ui, Sol senior review on risky and long tasks, one task at a time. Bulk/long run any time (`OFFPEAK_ONLY=no`; set yes to hold them for off-peak). |
 | `risky` | Auth, payments, migrations, production data | Every task treated as risk: high: two workers, judge, Sol senior review, Opus sign-off on every task; no review shortcuts; one task at a time; Opus retry cap 3/day. Uses noticeably more Opus quota. |
-| `fast` | Prototypes, internal tools, urgent backlogs | One worker unless a task is risk: high, no judge, no off-peak wait, 3 tasks in parallel, 60 s polling in loop.sh, 10 min pause when pools are full, DeepSeek at high effort, bigger review shortcut (50 lines). |
+| `fast` | Prototypes, internal tools, urgent backlogs | One worker unless a task is risk: high, no judge, 3 tasks in parallel, 60 s polling in loop.sh, 10 min pause when pools are full, DeepSeek at high effort, bigger review shortcut (50 lines). |
 
 ## Task statuses
 `queued -> claimed -> building -> gating -> reviewing -> merged`
@@ -102,6 +126,7 @@ Goal statuses: `new -> packed -> planned -> wrapup -> done`.
 | `orchestrate.sh events` / `brief` / `goals` | What's waiting, what Claude would be given, goal progress. |
 | `orchestrate.sh wake` | Wake Claude now, ignoring the gap (still capped). |
 | `cos.sh pack "goal"` / `map` / `status` / `triage` / `daily` | Cheap-model helper jobs: context pack, repo map, status note. |
+| `cos.sh conflicts` | Re-queue merge-conflicted tasks on the new base (no model; runs every loop pass). |
 | `doctor.sh [--models] [--claude]` | Health checks. |
 | `stats.sh [days]` | Per-model calls, errors, speed, gate pass rate and best-of-2 wins in this repo. Use it to tune routing.sh. |
 | `loop.sh` | Scheduler and orchestrator tick in a tmux window (recommended over cron). |

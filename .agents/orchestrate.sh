@@ -21,6 +21,9 @@ orch_calls_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null
 
 cmd_goal() {
   [ -n "${1:-}" ] || { echo 'usage: orchestrate.sh goal "milestone goal" [default|risky|fast]'; exit 1; }
+  [ "$ORCHESTRATOR" = claude ] || {
+    echo "ORCHESTRATOR=$ORCHESTRATOR: nothing would plan this goal. Run /plan in Claude Code instead,"
+    echo "or restart the loop with ORCHESTRATOR=claude."; exit 1; }
   local n id f
   n=$(goal_files | sed 's/.*G-0*//; s/\.md$//' | sort -n | tail -1); id=$(printf 'G-%03d' $(( ${n:-0} + 1 )))
   f="$GOALS/$id.md"
@@ -56,11 +59,7 @@ cmd_done() {
 housekeeping() {
   local f id st g open
   # Merge conflicts: the base moved; just redo the task on the new base.
-  for f in $(task_files); do
-    [ "$(fm_get "$f" status)" = conflict ] || continue
-    echo "The integration branch changed; re-implement on the current code." >"$TASKS/$(fm_get "$f" id).note.md"
-    fm_set "$f" status queued; tlog "$f" "requeued after merge conflict"
-  done
+  "$AG/cos.sh" conflicts
   # Stuck too often after orchestrator triage: stop spending Claude on it.
   for f in $(task_files); do
     [ "$(fm_get "$f" status)" = stuck ] || continue

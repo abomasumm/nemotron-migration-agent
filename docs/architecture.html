@@ -3,50 +3,58 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Agent pipeline: architecture and workflow</title>
+<title>Agent pipeline architecture</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+/* Layout: one reading column; diagrams and tables in panels; five colours = five budgets/roles */
 :root{
   --paper:#eef1f4; --panel:#f8f9fb; --ink:#1c2430; --muted:#5b6574; --line:#c9d0d9;
   --cl:#5b3fd1; --cl-bg:#ebe6ff; --go:#0b7a75; --go-bg:#dcf1ee; --gt:#99590a; --gt-bg:#fbeacd;
+  --ds:#1d5fb8; --ds-bg:#deeafb;
   --sc:#4b5563; --sc-bg:#e3e7ec; --arrow:#7a8594;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --paper:#121820; --panel:#18202a; --ink:#e6eaf0; --muted:#9aa5b4; --line:#2f3a47;
   --cl:#b9a9ff; --cl-bg:#2a2250; --go:#6fd3cb; --go-bg:#0f3432; --gt:#f2bf6c; --gt-bg:#3a2a0e;
-  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; } }
+  --ds:#8fbaf5; --ds-bg:#14294a;
+  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; color-scheme:dark; } }
 :root[data-theme="dark"]{
   --paper:#121820; --panel:#18202a; --ink:#e6eaf0; --muted:#9aa5b4; --line:#2f3a47;
   --cl:#b9a9ff; --cl-bg:#2a2250; --go:#6fd3cb; --go-bg:#0f3432; --gt:#f2bf6c; --gt-bg:#3a2a0e;
-  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; }
+  --ds:#8fbaf5; --ds-bg:#14294a;
+  --sc:#b7bec8; --sc-bg:#262e38; --arrow:#8793a3; color-scheme:dark; }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
 body{margin:0;background:var(--paper);color:var(--ink);
   font:400 17px/1.55 "Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:880px;margin:0 auto;padding:48px 20px 72px}
-h1{font-size:clamp(30px,5vw,44px);line-height:1.08;font-weight:700;letter-spacing:-0.02em;margin:0 0 14px;max-width:18ch}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.08;font-weight:700;letter-spacing:-0.02em;margin:0 0 14px;max-width:18ch;text-wrap:balance}
 .lede{color:var(--muted);max-width:62ch;margin:0 0 26px}
 .key{display:flex;flex-wrap:wrap;gap:10px 22px;margin:0 0 44px;padding:0;list-style:none;font-size:15px}
 .key li{display:flex;align-items:center;gap:8px}
 .sw{width:14px;height:14px;border-radius:4px;border:1.5px solid}
 .sw.cl{background:var(--cl-bg);border-color:var(--cl)} .sw.go{background:var(--go-bg);border-color:var(--go)}
 .sw.gt{background:var(--gt-bg);border-color:var(--gt)} .sw.sc{background:var(--sc-bg);border-color:var(--sc)}
+.sw.ds{background:var(--ds-bg);border-color:var(--ds)}
 section{margin:0 0 56px}
-h2{font-size:24px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px}
+h2{font-size:24px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px;text-wrap:balance}
 section>p{max-width:66ch;margin:0 0 18px}
-.fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 14px}
+code{font-size:0.9em;overflow-wrap:anywhere}
+.fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 14px;overflow-x:auto}
 .fig svg{display:block;width:100%;height:auto;max-width:680px;margin:0 auto}
 svg text{font-family:"Schibsted Grotesk",system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;fill:var(--ink)}
 svg .t{font-size:14px;font-weight:700} svg .s{font-size:12px;fill:var(--muted)}
 svg .cl-t{font-size:13px;font-weight:500;text-anchor:start;fill:var(--muted)}
 svg .ct{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:4 4}
 svg .ar{fill:none;stroke:var(--arrow);stroke-width:1.5}
+svg .ar.dash{stroke:var(--ds);stroke-dasharray:5 4}
 svg .n rect{stroke-width:1.5}
 svg .n.cl rect{fill:var(--cl-bg);stroke:var(--cl)} svg .n.go rect{fill:var(--go-bg);stroke:var(--go)}
 svg .n.gt rect{fill:var(--gt-bg);stroke:var(--gt)} svg .n.sc rect{fill:var(--sc-bg);stroke:var(--sc)}
+svg .n.ds rect{fill:var(--ds-bg);stroke:var(--ds)}
 svg .n text.t{font-size:14px;fill:var(--ink)}
 .notes{margin:16px 0 0;padding-left:20px;max-width:66ch}
 .notes li{margin:0 0 6px}
@@ -57,63 +65,345 @@ th{font-weight:700;background:transparent}
 tr:last-child td{border-bottom:0}
 td:first-child{font-weight:700;white-space:nowrap}
 .map td:first-child{white-space:normal;width:34%}
+table.cmp{min-width:860px}
+.cmp td:first-child{white-space:normal;width:13%}
 footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:18px;max-width:66ch}
+
+/* Repo-count toggle: the page shows one setup at a time */
+:root:not([data-scale="multi"]) [data-only="multi"]{display:none!important}
+:root[data-scale="multi"] [data-only="single"]{display:none!important}
+section>.mode>p{max-width:66ch;margin:0 0 18px}
+.scale{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 22px;font-size:15px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:3px}
+.seg button{font:inherit;font-weight:500;color:var(--muted);background:transparent;border:0;border-radius:999px;padding:6px 14px;cursor:pointer;min-height:36px}
+.seg button[aria-pressed="true"]{background:var(--ds-bg);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ds)}
+.seg button:focus-visible{outline:2px solid var(--ds);outline-offset:2px}
+.hint{font-size:15px;color:var(--muted);max-width:62ch;margin:-12px 0 30px}
 </style>
+<script>
+(function(){var m="single";try{m=localStorage.getItem("scale")||m}catch(e){}
+if(/^#(multi|several)/.test(location.hash))m="multi";else if(/^#(single|one)/.test(location.hash))m="single";
+document.documentElement.setAttribute("data-scale",m==="multi"?"multi":"single")})();
+</script>
 </head>
 <body>
 <main>
-<h1>Your agent pipeline, as it stands</h1>
-<p class="lede">Opus plans and signs off. Cheap models on two separate usage pools do the building and checking, and scripts handle everything that doesn't need a model. The same four colours mean the same thing in every diagram.</p>
+<div class="scale"><span id="scale-label">Showing the setup for</span>
+<div class="seg" role="group" aria-labelledby="scale-label">
+<button type="button" data-set="single">One repo</button><button type="button" data-set="multi">Several repos</button>
+</div></div>
+<h1 data-only="single">Your agent pipeline, as it stands</h1>
+<h1 data-only="multi">Your agent pipeline across four repos</h1>
+<p data-only="single" class="lede">Claude is the orchestrator. Opus plans each milestone, triages what the pipeline can't finish, signs off risky work and closes the milestone, and it is woken only when one of those decisions is waiting. Cheap models on two separate usage pools do the building and checking, and scripts handle everything that doesn't need a model. Above the pipeline sits DeepSeek Harness, your workbench and control desk: you write goals and prompts there, and ask it to check on or nudge the pipeline through a short list of allowed commands. Everything runs on your Mac. The same five colours mean the same thing in every diagram.</p>
+<p data-only="multi" class="lede">Claude is the orchestrator. Opus plans each milestone, triages what the pipeline can't finish, signs off risky work and closes the milestone, and it is woken only when one of those decisions is waiting. Cheap models on two separate usage pools do the building and checking, and scripts handle everything that doesn't need a model. Each of your four repos runs its own copy of this pipeline. Above them sits DeepSeek Harness: your workbench and control desk, and the portfolio orchestrator that decides which repo gets its next goal and when, so the four share one set of plans without overrunning them. Everything runs on your Mac. The same five colours mean the same thing in every diagram.</p>
+<p class="hint" data-only="single">This is one system. With a second repo, each repo runs exactly this pipeline, and DeepSeek Harness adds a portfolio layer above them: one backlog, goals queued per repo, shared budgets. Switch to <em>Several repos</em> to see it.</p>
+<p class="hint" data-only="multi">Everything inside each repo is the single-repo pipeline, unchanged. What this view adds is the layer above: the backlog, the scheduled check and the shared budgets. It turns on when you add a second repo.</p>
 <ul class="key">
-<li><span class="sw cl"></span>Claude Pro (Opus 5.5)</li>
+<li><span class="sw cl"></span>Claude Pro (Opus 5.5, the orchestrator)</li>
 <li><span class="sw go"></span>OpenCode Go pool</li>
 <li><span class="sw gt"></span>Command Code GOAT pool</li>
+<li data-only="single"><span class="sw ds"></span>DeepSeek Harness (workbench and control desk)</li>
+<li data-only="multi"><span class="sw ds"></span>DeepSeek Harness (workbench and portfolio orchestrator)</li>
 <li><span class="sw sc"></span>You, scripts and tools</li>
 </ul>
 
 <section>
 <h2>Architecture</h2>
-<p>Claude runs only through the official <code>claude</code> CLI on your Pro login. Every other model call goes through Oh My Pi (omp), then 9router, then the right pool. When a pool is full, calls move along each role's fallback combo, shown further down, including free models where that is safe.</p>
-<div class="fig"><svg viewBox="0 0 680 530" role="img" aria-labelledby="t6088 d6088"><title id="t6088">Current architecture</title><desc id="d6088">Opus plans; scripts call Pi through 9router to an OpenCode Go pool and a GOAT pool; Go overflows to GOAT.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect class="ct" x="40" y="20" width="600" height="100" rx="12"/><text class="cl-t" x="56" y="42">Claude Pro, official CLI only</text><g class="n cl"><rect x="190" y="52" width="300" height="56" rx="8"/><text class="t" x="340.0" y="71.0">Opus 5.5</text><text class="s" x="340.0" y="90.0">Plans, signs off, last retry</text></g><line class="ar" x1="340" y1="120" x2="340" y2="148" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="150" width="300" height="56" rx="8"/><text class="t" x="340.0" y="169.0">runner.sh and cos.sh</text><text class="s" x="340.0" y="188.0">Tasks, gates, stats</text></g><line class="ar" x1="340" y1="206" x2="340" y2="234" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="236" width="300" height="56" rx="8"/><text class="t" x="340.0" y="255.0">omp, then 9router</text><text class="s" x="340.0" y="274.0">RTK, fallbacks, free tiers</text></g><line class="ar" x1="300" y1="292" x2="185" y2="330" marker-end="url(#a)"/><line class="ar" x1="380" y1="292" x2="495" y2="330" marker-end="url(#a)"/><rect class="ct" x="40" y="332" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="354">OpenCode Go (ocg/), one pool</text><g class="n go"><rect x="45" y="372" width="135" height="56" rx="8"/><text class="t" x="112.5" y="391.0">DeepSeek V4.1</text><text class="s" x="112.5" y="410.0">Worker A</text></g><g class="n go"><rect x="190" y="372" width="135" height="56" rx="8"/><text class="t" x="257.5" y="391.0">Muse 1.3</text><text class="s" x="257.5" y="410.0">Worker B, review</text></g><g class="n go"><rect x="45" y="440" width="135" height="56" rx="8"/><text class="t" x="112.5" y="459.0">MiMo V2.6 Pro</text><text class="s" x="112.5" y="478.0">Tests, retry 1</text></g><g class="n go"><rect x="190" y="440" width="135" height="56" rx="8"/><text class="t" x="257.5" y="459.0">MiMo Flash</text><text class="s" x="257.5" y="478.0">Bulk tasks</text></g><rect class="ct" x="350" y="332" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="354">GOAT (cmc/), its own pool</text><g class="n gt"><rect x="355" y="372" width="135" height="56" rx="8"/><text class="t" x="422.5" y="391.0">GPT-5.6 Sol</text><text class="s" x="422.5" y="410.0">Judge, review</text></g><g class="n gt"><rect x="500" y="372" width="135" height="56" rx="8"/><text class="t" x="567.5" y="391.0">Kimi K3</text><text class="s" x="567.5" y="410.0">UI retry, review</text></g><g class="n gt"><rect x="355" y="440" width="135" height="56" rx="8"/><text class="t" x="422.5" y="459.0">Gemini Flash</text><text class="s" x="422.5" y="478.0">Visual QA</text></g><line class="ar" x1="330" y1="505" x2="348" y2="505" marker-end="url(#a)"/></svg></div>
+<div class="mode" data-only="single">
+<p>Claude runs only through the official <code>claude</code> CLI on your Pro login. The scripts wake it when a decision is waiting, and it answers by running the kit's commands; it never calls the cheap models itself. Every other model call in the pipeline goes through Oh My Pi (omp), then 9router, then the right pool. When a pool is full, calls move along each role's fallback combo, shown further down, including free models where that is safe.</p>
+<p>DeepSeek Harness is your workbench and control desk. You talk to it; it drafts briefs and prompts, and when you ask, it reads status or queues goals through <code>kitctl</code>, a wrapper that allows only a short list of kit commands. Its own chats reach 9router on a separate path (dashed), using DeepSeek on the GOAT pool so they never fill the Go window your workers depend on.</p>
+<div class="fig"><svg viewBox="0 0 680 670" role="img" aria-labelledby="tA1 dA1"><title id="tA1">Current architecture</title><desc id="dA1">You talk to DeepSeek Harness, which runs allow-listed kit commands through kitctl; the loop script wakes Opus on events and Opus answers with commands; scripts call omp through 9router to an OpenCode Go pool and a GOAT pool; dsh chats reach 9router separately and use DeepSeek on GOAT.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect class="ct" x="40" y="20" width="600" height="100" rx="12"/><text class="cl-t" x="56" y="40">Workbench and control desk</text>
+<g class="n sc"><rect x="60" y="54" width="220" height="56" rx="8"/><text class="t" x="170" y="73">You</text><text class="s" x="170" y="92">Ask dsh, final merge to main</text></g>
+<g class="n ds"><rect x="400" y="54" width="220" height="56" rx="8"/><text class="t" x="510" y="73">DeepSeek Harness</text><text class="s" x="510" y="92">dsh web: briefs, status, goals</text></g>
+<line class="ar" x1="284" y1="82" x2="396" y2="82" marker-start="url(#a)" marker-end="url(#a)"/><text class="s" x="340" y="70">asks, reports</text>
+<rect class="ct" x="40" y="150" width="270" height="100" rx="12"/><text class="cl-t" x="56" y="170">Claude Pro, official CLI only</text>
+<g class="n cl"><rect x="55" y="182" width="240" height="56" rx="8"/><text class="t" x="175" y="201">Opus 5.5</text><text class="s" x="175" y="220">Orchestrator, last retry</text></g>
+<g class="n sc"><rect x="400" y="182" width="220" height="56" rx="8"/><text class="t" x="510" y="201">kitctl</text><text class="s" x="510" y="220">Allow-listed kit commands</text></g>
+<line class="ar" x1="510" y1="110" x2="510" y2="180" marker-end="url(#a)"/><text class="s" x="572" y="146">on your say</text>
+<line class="ar" x1="200" y1="250" x2="200" y2="280" marker-end="url(#a)"/><text class="s" x="150" y="265">commands</text>
+<line class="ar" x1="255" y1="280" x2="255" y2="252" marker-end="url(#a)"/><text class="s" x="308" y="265">wakes on events</text>
+<line class="ar" x1="480" y1="238" x2="480" y2="280" marker-end="url(#a)"/>
+<g class="n sc"><rect x="160" y="282" width="360" height="56" rx="8"/><text class="t" x="340" y="301">loop.sh in tmux on your Mac</text><text class="s" x="340" y="320">orchestrate.sh tick, runner.sh run</text></g>
+<line class="ar" x1="340" y1="338" x2="340" y2="366" marker-end="url(#a)"/>
+<g class="n sc"><rect x="160" y="368" width="360" height="56" rx="8"/><text class="t" x="340" y="387">omp, then 9router</text><text class="s" x="340" y="406">RTK, fallbacks, free tiers</text></g>
+<path class="ar dash" d="M620 82 L655 82 L655 396 L524 396" marker-end="url(#a)"/><text class="s" x="589" y="380">dsh chats</text>
+<line class="ar" x1="300" y1="424" x2="185" y2="460" marker-end="url(#a)"/><line class="ar" x1="380" y1="424" x2="495" y2="460" marker-end="url(#a)"/>
+<rect class="ct" x="40" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="484">OpenCode Go (ocg/), one pool</text>
+<g class="n go"><rect x="45" y="502" width="135" height="56" rx="8"/><text class="t" x="112.5" y="521">DeepSeek V4.1</text><text class="s" x="112.5" y="540">Worker A</text></g>
+<g class="n go"><rect x="190" y="502" width="135" height="56" rx="8"/><text class="t" x="257.5" y="521">Muse 1.3</text><text class="s" x="257.5" y="540">Worker B, review</text></g>
+<g class="n go"><rect x="45" y="570" width="135" height="56" rx="8"/><text class="t" x="112.5" y="589">MiMo V2.6 Pro</text><text class="s" x="112.5" y="608">Tests, retry 1</text></g>
+<g class="n go"><rect x="190" y="570" width="135" height="56" rx="8"/><text class="t" x="257.5" y="589">MiMo Flash</text><text class="s" x="257.5" y="608">Bulk tasks</text></g>
+<rect class="ct" x="350" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="484">GOAT (cmc/), its own pool</text>
+<g class="n gt"><rect x="355" y="502" width="135" height="56" rx="8"/><text class="t" x="422.5" y="521">GPT-5.6 Sol</text><text class="s" x="422.5" y="540">Judge, review</text></g>
+<g class="n gt"><rect x="500" y="502" width="135" height="56" rx="8"/><text class="t" x="567.5" y="521">Kimi K3</text><text class="s" x="567.5" y="540">UI retry, review</text></g>
+<g class="n gt"><rect x="355" y="570" width="135" height="56" rx="8"/><text class="t" x="422.5" y="589">Gemini Flash</text><text class="s" x="422.5" y="608">Visual QA</text></g>
+<g class="n gt"><rect x="500" y="570" width="135" height="56" rx="8"/><text class="t" x="567.5" y="589">DeepSeek V4.1</text><text class="s" x="567.5" y="608">dsh, Go overflow</text></g>
+<line class="ar" x1="330" y1="635" x2="348" y2="635" marker-end="url(#a)"/></svg></div>
+</div>
+<div class="mode" data-only="multi">
+<p>Each of your four repos runs its own copy of the kit: its own loop, task queue and Claude orchestrator. Claude runs only through the official <code>claude</code> CLI on your Pro login, and every other model call goes through omp, then 9router, then the right pool. All four repos draw on the same three budgets: one Pro plan, one Go pool and one GOAT pool.</p>
+<p>DeepSeek Harness sits above the repos as the portfolio orchestrator. It keeps one backlog for all four, decides which repo gets its next goal and when, and queues it through <code>kitctl</code>. It controls load only by what it queues, never by calling Claude or touching code. Inside each repo, Claude still plans, triages and signs off.</p>
+<div class="fig"><svg viewBox="0 0 680 690" role="img" aria-labelledby="tB1 dB1"><title id="tB1">Multi-repo architecture</title><desc id="dB1">You and DeepSeek Harness at the top; dsh queues goals through kitctl into four repos, each with its own loop and Claude orchestrator; the repos share one Claude Pro plan and call omp through 9router into the Go and GOAT pools; dsh chats reach 9router separately.</desc><defs><marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect class="ct" x="40" y="20" width="600" height="100" rx="12"/><text class="cl-t" x="56" y="40">Workbench, control desk and portfolio orchestrator</text>
+<g class="n sc"><rect x="60" y="54" width="220" height="56" rx="8"/><text class="t" x="170" y="73">You</text><text class="s" x="170" y="92">Backlog order, merges to main</text></g>
+<g class="n ds"><rect x="400" y="54" width="220" height="56" rx="8"/><text class="t" x="510" y="73">DeepSeek Harness</text><text class="s" x="510" y="92">One backlog, four repos</text></g>
+<line class="ar" x1="284" y1="82" x2="396" y2="82" marker-start="url(#b)" marker-end="url(#b)"/><text class="s" x="340" y="70">asks, digests</text>
+<line class="ar" x1="510" y1="110" x2="510" y2="148" marker-end="url(#b)"/>
+<g class="n sc"><rect x="400" y="150" width="220" height="56" rx="8"/><text class="t" x="510" y="169">kitctl</text><text class="s" x="510" y="188">Allow-listed commands, any repo</text></g>
+<line class="ar" x1="510" y1="206" x2="510" y2="240"/><line class="ar" x1="110" y1="240" x2="570" y2="240"/><line class="ar" x1="110" y1="240" x2="110" y2="260" marker-end="url(#b)"/><line class="ar" x1="263" y1="240" x2="263" y2="260" marker-end="url(#b)"/><line class="ar" x1="416" y1="240" x2="416" y2="260" marker-end="url(#b)"/><line class="ar" x1="570" y1="240" x2="570" y2="260" marker-end="url(#b)"/>
+<text class="s" x="200" y="226">next goal, per repo, by budget</text>
+<g class="n sc"><rect x="40" y="262" width="140" height="56" rx="8"/><text class="t" x="110" y="281">Dashboard 1</text><text class="s" x="110" y="300">loop.sh + orchestrator</text></g>
+<g class="n sc"><rect x="193" y="262" width="140" height="56" rx="8"/><text class="t" x="263" y="281">Dashboard 2</text><text class="s" x="263" y="300">loop.sh + orchestrator</text></g>
+<g class="n sc"><rect x="346" y="262" width="140" height="56" rx="8"/><text class="t" x="416" y="281">Portfolio</text><text class="s" x="416" y="300">loop.sh + orchestrator</text></g>
+<g class="n sc"><rect x="500" y="262" width="140" height="56" rx="8"/><text class="t" x="570" y="281">Data project</text><text class="s" x="570" y="300">loop.sh + orchestrator</text></g>
+<line class="ar" x1="110" y1="318" x2="110" y2="330"/><line class="ar" x1="263" y1="318" x2="263" y2="330"/><line class="ar" x1="416" y1="318" x2="416" y2="330"/><line class="ar" x1="570" y1="318" x2="570" y2="330"/><line class="ar" x1="110" y1="330" x2="570" y2="330"/>
+<line class="ar" x1="175" y1="330" x2="175" y2="354" marker-start="url(#b)" marker-end="url(#b)"/>
+<line class="ar" x1="495" y1="330" x2="495" y2="384" marker-end="url(#b)"/>
+<rect class="ct" x="40" y="356" width="270" height="96" rx="12"/><text class="cl-t" x="56" y="372">Claude Pro, one plan for all repos</text>
+<g class="n cl"><rect x="55" y="386" width="240" height="56" rx="8"/><text class="t" x="175" y="405">Opus 5.5</text><text class="s" x="175" y="424">Orchestrator in each repo</text></g>
+<g class="n sc"><rect x="370" y="386" width="250" height="56" rx="8"/><text class="t" x="495" y="405">omp, then 9router</text><text class="s" x="495" y="424">RTK, fallbacks, free tiers</text></g>
+<path class="ar dash" d="M620 82 L655 82 L655 414 L624 414" marker-end="url(#b)"/><text class="s" x="600" y="362">dsh chats</text>
+<line class="ar" x1="460" y1="442" x2="185" y2="478" marker-end="url(#b)"/><line class="ar" x1="530" y1="442" x2="495" y2="478" marker-end="url(#b)"/>
+<rect class="ct" x="40" y="480" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="502">OpenCode Go (ocg/), one pool</text>
+<g class="n go"><rect x="45" y="520" width="135" height="56" rx="8"/><text class="t" x="112.5" y="539">DeepSeek V4.1</text><text class="s" x="112.5" y="558">Worker A</text></g>
+<g class="n go"><rect x="190" y="520" width="135" height="56" rx="8"/><text class="t" x="257.5" y="539">Muse 1.3</text><text class="s" x="257.5" y="558">Worker B, review</text></g>
+<g class="n go"><rect x="45" y="588" width="135" height="56" rx="8"/><text class="t" x="112.5" y="607">MiMo V2.6 Pro</text><text class="s" x="112.5" y="626">Tests, retry 1</text></g>
+<g class="n go"><rect x="190" y="588" width="135" height="56" rx="8"/><text class="t" x="257.5" y="607">MiMo Flash</text><text class="s" x="257.5" y="626">Bulk tasks</text></g>
+<rect class="ct" x="350" y="480" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="502">GOAT (cmc/), its own pool</text>
+<g class="n gt"><rect x="355" y="520" width="135" height="56" rx="8"/><text class="t" x="422.5" y="539">GPT-5.6 Sol</text><text class="s" x="422.5" y="558">Judge, review</text></g>
+<g class="n gt"><rect x="500" y="520" width="135" height="56" rx="8"/><text class="t" x="567.5" y="539">Kimi K3</text><text class="s" x="567.5" y="558">UI retry, review</text></g>
+<g class="n gt"><rect x="355" y="588" width="135" height="56" rx="8"/><text class="t" x="422.5" y="607">Gemini Flash</text><text class="s" x="422.5" y="626">Visual QA</text></g>
+<g class="n gt"><rect x="500" y="588" width="135" height="56" rx="8"/><text class="t" x="567.5" y="607">DeepSeek V4.1</text><text class="s" x="567.5" y="626">dsh, Go overflow</text></g>
+<line class="ar" x1="330" y1="653" x2="348" y2="653" marker-end="url(#b)"/></svg></div>
+</div>
 </section>
 
 <section>
+<div class="mode" data-only="single">
 <h2>Milestone workflow</h2>
-<p>You touch the pipeline three times per milestone: the goal, the sign-off and the final merge. Everything in between runs on its own.</p>
-<div class="fig"><svg viewBox="0 0 680 524" role="img" aria-labelledby="t7265 d7265"><title id="t7265">Milestone workflow</title><desc id="d7265">Goal, context pack, plan, automated runner with daily triage, sign-off, merge.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="190" y="20" width="300" height="56" rx="8"/><text class="t" x="340.0" y="39.0">You set a goal</text><text class="s" x="340.0" y="58.0">One milestone at a time</text></g><line class="ar" x1="340" y1="76" x2="340" y2="102" marker-end="url(#a)"/><g class="n go"><rect x="190" y="104" width="300" height="56" rx="8"/><text class="t" x="340.0" y="123.0">cos.sh pack</text><text class="s" x="340.0" y="142.0">Muse summarises the code</text></g><line class="ar" x1="340" y1="160" x2="340" y2="186" marker-end="url(#a)"/><g class="n cl"><rect x="190" y="188" width="300" height="56" rx="8"/><text class="t" x="340.0" y="207.0">/plan in Claude Code</text><text class="s" x="340.0" y="226.0">Opus writes task files</text></g><line class="ar" x1="340" y1="244" x2="340" y2="270" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="272" width="300" height="56" rx="8"/><text class="t" x="340.0" y="291.0">runner.sh every 5 min</text><text class="s" x="340.0" y="310.0">cron or loop.sh</text></g><line class="ar" x1="340" y1="328" x2="340" y2="354" marker-end="url(#a)"/><g class="n go"><rect x="520" y="272" width="130" height="56" rx="8"/><text class="t" x="585.0" y="291.0">cos.sh daily</text><text class="s" x="585.0" y="310.0">Triage, status</text></g><line class="ar" x1="518" y1="300" x2="492" y2="300" marker-end="url(#a)"/><g class="n cl"><rect x="190" y="356" width="300" height="56" rx="8"/><text class="t" x="340.0" y="375.0">/signoff in Claude Code</text><text class="s" x="340.0" y="394.0">Opus approves risky work</text></g><line class="ar" x1="340" y1="412" x2="340" y2="438" marker-end="url(#a)"/><g class="n sc"><rect x="190" y="440" width="300" height="56" rx="8"/><text class="t" x="340.0" y="459.0">You merge to main</text><text class="s" x="340.0" y="478.0">From the agents branch</text></g></svg></div>
+<p>You decide twice per milestone: which goal to run, and when to merge the result. dsh drafts the brief and, once you agree, queues it. In between, Claude is woken to plan, to handle tasks that get stuck or need sign-off, and to close the milestone, while dsh keeps you posted.</p>
+<div class="fig"><svg viewBox="0 0 680 524" role="img" aria-labelledby="tA2 dA2"><title id="tA2">Milestone workflow</title><desc id="dA2">dsh drafts the brief and queues the goal on your OK, Muse packs context, Claude plans, the runner builds while Claude wakes for triage and sign-off and dsh reports to you, Claude wraps up, you merge.</desc><defs><marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="n ds"><rect x="30" y="20" width="130" height="56" rx="8"/><text class="t" x="95" y="39">dsh drafts</text><text class="s" x="95" y="58">The goal brief</text></g>
+<line class="ar" x1="162" y1="48" x2="188" y2="48" marker-end="url(#a2)"/>
+<g class="n ds"><rect x="190" y="20" width="300" height="56" rx="8"/><text class="t" x="340" y="39">dsh queues the goal</text><text class="s" x="340" y="58">kitctl goal, once you agree</text></g><line class="ar" x1="340" y1="76" x2="340" y2="102" marker-end="url(#a2)"/>
+<g class="n go"><rect x="190" y="104" width="300" height="56" rx="8"/><text class="t" x="340" y="123">cos.sh pack</text><text class="s" x="340" y="142">Muse summarises the code</text></g><line class="ar" x1="340" y1="160" x2="340" y2="186" marker-end="url(#a2)"/>
+<g class="n cl"><rect x="190" y="188" width="300" height="56" rx="8"/><text class="t" x="340" y="207">Claude plans</text><text class="s" x="340" y="226">Woken to write task files</text></g><line class="ar" x1="340" y1="244" x2="340" y2="270" marker-end="url(#a2)"/>
+<g class="n sc"><rect x="190" y="272" width="300" height="56" rx="8"/><text class="t" x="340" y="291">runner.sh every 5 min</text><text class="s" x="340" y="310">Builds, gates, reviews, merges</text></g><line class="ar" x1="340" y1="328" x2="340" y2="354" marker-end="url(#a2)"/>
+<g class="n cl"><rect x="520" y="272" width="130" height="56" rx="8"/><text class="t" x="585" y="291">Claude wakes</text><text class="s" x="585" y="310">Triage, sign-off</text></g><line class="ar" x1="518" y1="300" x2="492" y2="300" marker-start="url(#a2)" marker-end="url(#a2)"/>
+<g class="n ds"><rect x="30" y="272" width="130" height="56" rx="8"/><text class="t" x="95" y="291">dsh reports</text><text class="s" x="95" y="310">Status, needs-you</text></g><line class="ar" x1="188" y1="300" x2="162" y2="300" marker-end="url(#a2)"/>
+<g class="n cl"><rect x="190" y="356" width="300" height="56" rx="8"/><text class="t" x="340" y="375">Claude wraps up</text><text class="s" x="340" y="394">Reads batch review, closes goal</text></g><line class="ar" x1="340" y1="412" x2="340" y2="438" marker-end="url(#a2)"/>
+<g class="n sc"><rect x="190" y="440" width="300" height="56" rx="8"/><text class="t" x="340" y="459">You merge to main</text><text class="s" x="340" y="478">From the agents branch</text></g></svg></div>
+</div>
+<div class="mode" data-only="multi">
+<h2>Portfolio cycle</h2>
+<p>Above the repos, dsh runs a slow cycle: a few times a day it looks at every repo and the shared budgets, and decides whether any repo should get its next goal. You decide what is in the backlog and in what order, and you merge each repo's results.</p>
+<div class="fig"><svg viewBox="0 0 680 440" role="img" aria-labelledby="tB2 dB2"><title id="tB2">Portfolio cycle</title><desc id="dB2">You order the backlog; dsh checks every repo and the budgets on a schedule, queues the next ready goal in an idle repo, the repo runs its normal milestone with Claude, dsh writes one digest, you merge.</desc><defs><marker id="b2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="n ds"><rect x="30" y="20" width="130" height="56" rx="8"/><text class="t" x="95" y="39">dsh drafts</text><text class="s" x="95" y="58">Briefs for backlog</text></g>
+<line class="ar" x1="162" y1="48" x2="188" y2="48" marker-end="url(#b2)"/>
+<g class="n sc"><rect x="190" y="20" width="300" height="56" rx="8"/><text class="t" x="340" y="39">You order the backlog</text><text class="s" x="340" y="58">Mark briefs ready, set priority</text></g><line class="ar" x1="340" y1="76" x2="340" y2="102" marker-end="url(#b2)"/>
+<g class="n ds"><rect x="190" y="104" width="300" height="56" rx="8"/><text class="t" x="340" y="123">dsh checks, on a schedule</text><text class="s" x="340" y="142">Every repo's state and the budgets</text></g><line class="ar" x1="340" y1="160" x2="340" y2="186" marker-end="url(#b2)"/>
+<g class="n ds"><rect x="190" y="188" width="300" height="56" rx="8"/><text class="t" x="340" y="207">dsh queues one goal</text><text class="s" x="340" y="226">In an idle repo, if budget allows</text></g><line class="ar" x1="340" y1="244" x2="340" y2="270" marker-end="url(#b2)"/>
+<g class="n cl"><rect x="190" y="272" width="300" height="56" rx="8"/><text class="t" x="340" y="291">The repo's milestone runs</text><text class="s" x="340" y="310">Claude plans, workers build, Claude wraps up</text></g><line class="ar" x1="340" y1="328" x2="340" y2="354" marker-end="url(#b2)"/>
+<g class="n sc"><rect x="190" y="356" width="300" height="56" rx="8"/><text class="t" x="340" y="375">You merge to main</text><text class="s" x="340" y="394">Per repo, from its agents branch</text></g>
+<g class="n ds"><rect x="520" y="272" width="130" height="56" rx="8"/><text class="t" x="585" y="291">dsh digest</text><text class="s" x="585" y="310">One for all repos</text></g><line class="ar" x1="492" y1="300" x2="518" y2="300" marker-end="url(#b2)"/>
+<path class="ar" d="M585 272 L585 132 L492 132" marker-end="url(#b2)"/><text class="s" x="620" y="200">next</text><text class="s" x="620" y="216">check</text></svg></div>
+<h2 style="margin-top:34px">Inside each repo</h2>
+<p>Once a goal is queued, the repo runs the same milestone as a single-repo setup: Muse packs context, Claude plans, the runner builds, Claude triages and signs off, Claude wraps up. dsh doesn't take part until the goal is done or something is parked for you.</p>
+</div>
+</section>
+
+<section>
+<h2>How Claude orchestrates</h2>
+<p>Claude doesn't poll. Every five minutes <code>loop.sh</code> runs the scheduler and then <code>orchestrate.sh tick</code>, which does the cheap work with scripts and checks for events. Only if one is waiting does it start <code>claude -p</code>, once, with a brief that covers every waiting event. Claude acts through the kit's own commands and stops.</p>
+<div class="tw"><table>
+<thead><tr><th>Event</th><th>When</th><th>Scripts do first</th><th>Claude decides</th><th>Model</th></tr></thead>
+<tbody>
+<tr><td>Plan</td><td>You queue a goal</td><td>Muse writes a context pack</td><td>Splits the goal into task files and marks it planned</td><td>Opus</td></tr>
+<tr><td>Triage</td><td>A task fails its whole retry chain</td><td>A digest: brief, verdicts, last failure, gate output</td><td>Rewrite the brief, requeue with a hint, split, escalate to the Opus retry, or park it for you</td><td>Opus</td></tr>
+<tr><td>Sign-off</td><td>A high-risk task passes every gate and review</td><td>The digest and Sol's senior review</td><td>Reads the diff; approves, or rejects with a specific fix</td><td>Opus</td></tr>
+<tr><td>Wrap-up</td><td>Every task in the goal is merged</td><td>Batch review of the small tasks that skipped review</td><td>Adds fix-up tasks, or closes the goal for you to merge</td><td>Sonnet</td></tr>
+</tbody></table></div>
+<h2 style="margin-top:34px">Keeping Pro quota for decisions</h2>
+<p>Pro usage is shared with your chat and is the scarcest budget in the setup, so every wake is rationed.</p>
+<ul class="notes">
+<li>Wakes have their own cap, 10 a day (16 on the risky profile), separate from the Opus retry cap of 2. Past the cap, events wait until the next day while tasks keep running.</li>
+<li>At least 30 minutes between wakes (10 on fast), so events that arrive close together are handled in one call. A new goal skips the wait.</li>
+<li>If the waiting events are exactly what Claude saw last time, no wake. An unresolved event gets one more look the next day.</li>
+<li>A task that is still stuck after two triages goes to you instead of back to Claude.</li>
+<li>When Pro reports a usage limit, the orchestrator backs off for an hour and that attempt doesn't count toward the cap.</li>
+<li>Claude reads a prepared brief and short digests, not raw logs. It opens a diff only to sign off high-risk work.</li>
+<li>A sharp goal brief from your workbench is the cheapest way to save quota: fewer stuck tasks means fewer triage wakes.</li>
+</ul>
+<h2 style="margin-top:34px">What it can and can't do</h2>
+<p>In headless mode Claude gets a pinned tool list. It can read the repo, edit task files and <code>NOTES.md</code>, run <code>runner.sh</code> and <code>orchestrate.sh</code>, and use read-only git. It cannot edit source code, commit, merge into main or push. Merging the <code>agents</code> branch into main stays with you. To drive a pass yourself, run <code>/orchestrate</code> in Claude Code; <code>/plan</code> and <code>/signoff</code> still work on their own.</p>
+<p><strong>Fallback mode.</strong> If Pro quota runs short or the <code>claude</code> CLI breaks, restart the loop with <code>ORCHESTRATOR=cos</code>: Muse triages stuck tasks once a day and you run <code>/plan</code> and <code>/signoff</code> yourself, the way the kit worked before Claude orchestrated. In that mode <code>orchestrate.sh goal</code> refuses, since nothing would plan the goal, so briefs from dsh go into <code>/plan</code> by hand. Merge conflicts are still re-queued on every pass. A lighter step back is to keep Claude orchestrating with <code>ORCH_AUTO_SIGNOFF=no</code>, so risky work waits for your <code>/signoff</code>. <code>claude</code> stays the default.</p>
+</section>
+
+<section data-only="multi">
+<h2>Meta-orchestrator across your repos</h2>
+<p>The kit's limits are set per repo. With four repos on one machine, four loops share one Pro plan, one Go pool and one GOAT pool, and nothing in the kit sees the total. dsh's job at this level is to keep the total sensible, by choosing what each repo works on and when.</p>
+<h2 style="margin-top:34px">The backlog</h2>
+<p>One file, <code>~/code/ops/backlog.md</code>, lists every goal across the four repos. You own the order; dsh owns the timing.</p>
+<div class="tw"><table class="map">
+<thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>repo</code></td><td>dashboard-1, dashboard-2, portfolio or data (names from <code>~/code/ops/repos.txt</code>)</td></tr>
+<tr><td><code>priority</code></td><td>Your order. dsh never reorders; it only skips items that can't run yet.</td></tr>
+<tr><td><code>profile</code></td><td>default, risky or fast, passed through to <code>orchestrate.sh goal</code></td></tr>
+<tr><td><code>after</code></td><td>Another backlog item that must be done first, including one in a different repo (for example, the data project's new table before the dashboard that reads it)</td></tr>
+<tr><td><code>status</code></td><td>idea, then ready (you set this once the brief is good), then queued (dsh set it), then done</td></tr>
+<tr><td><code>brief</code></td><td>Path to the brief in <code>~/code/ops/briefs/</code></td></tr>
+</tbody></table></div>
+<h2 style="margin-top:34px">How dsh decides</h2>
+<ul class="notes">
+<li>It runs as a scheduled task, for example at 08:45, 12:45, 16:45 and 20:45. It reads each repo's goals and task status, today's <code>runs.csv</code> totals and recent pauses in <code>fallbacks.log</code>.</li>
+<li>A repo is idle when it has no goal in progress. At most one active goal per repo.</li>
+<li>It queues the highest-priority <code>ready</code> item whose repo is idle and whose <code>after</code> item is done.</li>
+<li>It queues at most two new goals per day across all repos, since each one triggers a Claude plan wake, the largest wake there is.</li>
+<li>Only one risky goal runs at a time across all repos, because risky goals sign off every task with Opus.</li>
+<li>It holds new goals when <code>fallbacks.log</code> shows Go pauses in the last two hours, or when today's GOAT total is close to its share.</li>
+<li>Every decision goes into the digest with its reason: "queued G-004 in dashboard-1; held portfolio item 7, Go pool paused at 14:10".</li>
+</ul>
+<h2 style="margin-top:34px">Shared budgets</h2>
+<p>Each repo's <code>routing.sh</code> caps only that repo. Lower them so the four together fit one machine's plans, then let dsh's queuing keep the total under them. These are starting values; tune them with two weeks of <code>stats.sh</code>.</p>
+<div class="tw"><table class="map">
+<thead><tr><th>Budget</th><th>Kit setting today, per repo</th><th>Four repos at today's settings</th><th>Starting split</th></tr></thead>
+<tbody>
+<tr><td>Claude orchestrator wakes (Pro)</td><td><code>CLAUDE_ORCH_DAILY_CAP</code> 10</td><td>Up to 40 a day on one Pro plan that your chat also uses</td><td>4 per repo; the repo running a risky goal gets 8</td></tr>
+<tr><td>Opus retries (Pro)</td><td><code>CLAUDE_DAILY_CAP</code> 2</td><td>Up to 8 a day</td><td>1 per repo; 2 for the repo running a risky goal</td></tr>
+<tr><td>GOAT calls</td><td><code>GOAT_DAILY_RUN_CAP</code> 80</td><td>Up to 320 a day from one GOAT pool</td><td>30 for the busiest repo, 20, 15 and 15 for the others</td></tr>
+<tr><td>Go pool</td><td>No cap; one shared five-hour window</td><td>Four loops competing; a full window stops every Go model</td><td>Kept down by queuing: at most two repos building during the day</td></tr>
+<tr><td>Parallel tasks</td><td><code>MAX_PARALLEL</code> 1</td><td>Four tasks at once</td><td>Keep 1 per repo until the pipeline is proven</td></tr>
+</tbody></table></div>
+<h2 style="margin-top:34px">Limits of this layer</h2>
+<ul class="notes">
+<li>dsh only decides <em>what</em> and <em>when</em>. Planning, triage and sign-off stay with Claude inside each repo.</li>
+<li>It can't stop work already running; it can only hold the next goal. To stop a repo now, stop its tmux loop.</li>
+<li>If dsh is down, nothing new is queued and each repo finishes what it has. That fails safe.</li>
+<li>Its decisions use DeepSeek, so they are scheduling calls, not quality calls. Anything about whether code is good stays with the gates, the reviewers and Claude.</li>
+<li>Start it only once a second repo has the kit installed and a few goals have run cleanly in each. Until then, the control desk on its own is enough.</li>
+</ul>
+</section>
+
+<section>
+<div class="mode" data-only="single">
+<h2>Your workbench and control desk: DeepSeek Harness</h2>
+<p>DeepSeek Harness (dsh) is where you think before anything enters the pipeline, and where you check on it afterwards. You run <code>dsh web</code> on your Mac, write goal briefs and prompts there, get second opinions, and ask it to read or nudge the pipeline for you. Nothing in the pipeline depends on it: if dsh is closed or an update breaks it, the loop keeps running and you run the same commands by hand.</p>
+</div>
+<div class="mode" data-only="multi">
+<h2>Workbench and control desk: DeepSeek Harness</h2>
+<p>DeepSeek Harness (dsh) is where you think before anything enters the pipeline, where you check on it afterwards, and the layer that spreads work across your four repos. You run <code>dsh web</code> on your Mac. Nothing in any repo's pipeline depends on it: if dsh is closed or an update breaks it, every loop keeps running and you queue goals by hand.</p>
+</div>
+<div class="tw"><table class="map">
+<thead><tr><th>Job</th><th>How</th><th>Where it ends up</th></tr></thead>
+<tbody>
+<tr><td>Goal briefs</td><td>Open the repo as a read-only workspace. dsh reads <code>CLAUDE.md</code> and <code>AGENTS.md</code>, then drafts the outcome, testable acceptance criteria, scope, risk and constraints.</td><td>Queued through <code>kitctl</code> when you say so; the text Claude plans from</td></tr>
+<tr><td>Prompts for other models</td><td>Gemini UI-spec requests, prompts for Claude chat or an interactive Claude Code session, one-off omp prompts.</td><td><code>~/code/ops/prompts</code>, pasted in by you</td></tr>
+<tr><td>Second opinion on a plan</td><td>Switch the chat to Sol or Kimi and ask what is missing or untestable. A different model family catches different gaps.</td><td>Changes to the brief before it is queued</td></tr>
+<tr><td>Pipeline status and actions</td><td>Ask in plain words; dsh runs the matching <code>kitctl</code> command and explains the result.</td><td>The kit's own state, changed only through allow-listed commands</td></tr>
+<tr><td>Tasks parked for you</td><td>dsh reads the digest, explains what went wrong and proposes a hint; you say requeue or park.</td><td><code>runner.sh requeue</code> or <code>park</code> through <code>kitctl</code></td></tr>
+<tr><td>Data project sources</td><td>Profile xlsx, csv and pdf sources (columns, types, nulls, quirks), draft the schema and the synthetic fixtures the data gate needs.</td><td>The data project's first goal briefs</td></tr>
+</tbody></table></div>
+<h2 style="margin-top:34px">Running the pipeline from chat</h2>
+<p>You can also ask dsh to work the pipeline for you: "what's stuck and why", "queue this brief as a risky goal", "requeue T-015 with this hint". dsh never runs the kit's scripts directly. It calls <code>kitctl</code>, a small wrapper in <code>~/code/ops</code> that runs only allow-listed kit commands and logs every call to <code>~/code/ops/kitctl.log</code>, so every action still goes through the kit's own rules.</p>
+<div class="tw"><table class="map">
+<thead><tr><th>What dsh may do through kitctl</th><th>Commands</th></tr></thead>
+<tbody>
+<tr><td>Read status, any time</td><td><code>runner.sh status</code>, <code>runner.sh show ID</code>, <code>orchestrate.sh goals</code>, <code>orchestrate.sh events</code>, <code>stats.sh N</code>, <code>cos.sh status</code>, the last lines of the kit's logs</td></tr>
+<tr><td>Queue a goal, when you say so</td><td><code>orchestrate.sh goal "…" [default|risky|fast]</code>. Claude is woken to plan it on the next tick, inside its caps.</td></tr>
+<tr><td>Act on tasks parked for you, when you say so</td><td><code>runner.sh requeue ID ["hint"]</code> and <code>runner.sh park ID</code>, only for tasks in <code>needs-you</code></td></tr>
+</tbody></table></div>
+<div class="tw"><table class="map">
+<thead><tr><th>Stays with Claude or with you</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Stuck tasks</td><td>Claude triages them automatically. dsh only sees them once Claude parks them as <code>needs-you</code>.</td></tr>
+<tr><td>Sign-off: <code>approve</code>, <code>reject</code></td><td>Risky work is signed off by Opus, or by you in Claude Code. A DeepSeek model approving DeepSeek-built code would break the family rule.</td></tr>
+<tr><td><code>escalate</code>, <code>drop</code></td><td>Escalate spends an Opus retry and drop throws work away. Run these yourself.</td></tr>
+<tr><td><code>orchestrate.sh wake</code>, <code>planned</code>, <code>done</code></td><td>These belong to the orchestrator's own cycle.</td></tr>
+<tr><td>Task files, source code, git commits, merges and pushes</td><td>Claude writes task files, workers write code, you merge.</td></tr>
+</tbody></table></div>
+<h2 style="margin-top:34px">Scheduled reports</h2>
+<ul class="notes">
+<li>Every morning at 08:45: a read-only summary of what needs you (tasks in <code>needs-you</code>, goals waiting on sign-off, pool pauses overnight), written to <code>~/code/ops/digests/</code>.</li>
+<li>Every Monday: a routing report from <code>stats.sh 7</code>, <code>fallbacks.log</code> and <code>orchestrator.log</code> with suggested changes for <code>routing.sh</code>.</li>
+<li>Reports only read. Anything they suggest, you ask for in chat.</li>
+</ul>
+
+<h2 style="margin-top:34px">Setting it up</h2>
+<ul class="notes">
+<li>Add 9router as a custom provider: base URL <code>http://127.0.0.1:20128/v1</code>, protocol <code>openai-completions</code>, your 9router key. dsh fills the model list from 9router. Don't add a DeepSeek API key; that bills outside your plans.</li>
+<li>Use DeepSeek V4.1 Flash on GOAT (<code>cmc/</code>) day to day. When the Go pool's five-hour window fills, every Go model stops, and your chats shouldn't be what pauses the workers.</li>
+<li>Make <code>~/code/ops</code> the control workspace (workspace-write): <code>kitctl</code>, <code>repos.txt</code> (repo names and paths), <code>briefs/</code>, <code>prompts/</code>, <code>templates/</code>, <code>digests/</code>. Open each repo as its own read-only workspace for drafting. Never use full access, and avoid the minimal profile because its file editor ignores the sandbox.</li>
+<li>Run it in its own tmux window next to the loop: <code>tmux new -s dsh 'npx @deepseek-ai/dsh web --no-open'</code>. Scheduled reports only run while dsh is running. It needs Node 22.19 or later.</li>
+<li>It listens on <code>127.0.0.1:3080</code> only. Keep it that way.</li>
+<li><strong>Test before trusting it.</strong> dsh's sandbox has no per-command allow-list, so <code>kitctl</code> is the guard. From dsh, queue a throwaway goal through <code>kitctl</code>, then ask dsh to edit a source file in the repo and confirm it is refused. If the sandbox also blocks <code>kitctl</code> from writing the goal file, widen the workspace to <code>~/code</code> and rely on <code>kitctl</code> plus the morning summary, which flags any uncommitted change in a main checkout.</li>
+</ul>
+<h2 style="margin-top:34px">What it doesn't do</h2>
+<ul class="notes">
+<li>It never calls Claude. Its Claude Code subagent stays off; Claude is woken only by <code>orchestrate.sh</code>, inside its caps. Queuing a goal is how dsh asks for Claude's time.</li>
+<li>It never writes task files or code. The runner builds any queued task file, so one written by dsh would skip Claude's planning.</li>
+<li>It doesn't review or sign off pipeline code. It runs on DeepSeek, which builds most of your code, and reviewers must come from a different family.</li>
+<li>Its usage isn't in <code>runs.csv</code>, so the kit's GOAT cap can't see it. Keep Sol and Kimi critiques occasional and check the GOAT console now and then.</li>
+<li>It is a release candidate (0.1.0-rc) with breaking changes announced. If it breaks, run the same commands yourself; the pipeline doesn't wait on dsh.</li>
+</ul>
+<h2 style="margin-top:34px">Habits that pay off</h2>
+<ul class="notes">
+<li>Keep one brief template and improve it. Sharper briefs mean fewer retries and fewer Opus wakes, the biggest saving in the whole setup.</li>
+<li>Before trusting a brief, open the session's step view and check that dsh read the files and functions it names. Guessed names in acceptance criteria are a common reason tests fail.</li>
+<li>When a goal goes badly, give dsh the stuck tasks' digests and ask what in the brief caused it. Fold the answer into the template and add a line to <code>NOTES.md</code> yourself.</li>
+<li>Read <code>kitctl.log</code> once a week. It is the record of everything dsh did to the pipeline.</li>
+</ul>
 </section>
 
 <section>
 <h2>What happens to each task</h2>
-<p>Three agents build in parallel. The tests must fail on the old code before they count, the gates check tests, scope and security, and a reviewer from a different model family reads every change. Anything that fails climbs the retry chain on the right.</p>
-<div class="fig"><svg viewBox="0 0 680 640" role="img" aria-labelledby="t2499 d2499"><title id="t2499">Per-task pipeline</title><desc id="d2499">Context pack, then test-writer and two workers in parallel, gates, judge, first and senior review, merge; failures climb MiMo Pro, Sol, Opus.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="240" y="20" width="200" height="56" rx="8"/><text class="t" x="340.0" y="39.0">Context pack</text><text class="s" x="340.0" y="58.0">Script, no model</text></g><path class="ar" d="M340 76 L340 92 L130 92 L130 108" marker-end="url(#a)"/><line class="ar" x1="340" y1="76" x2="340" y2="108" marker-end="url(#a)"/><path class="ar" d="M340 92 L550 92 L550 108" marker-end="url(#a)"/><g class="n go"><rect x="40" y="110" width="180" height="56" rx="8"/><text class="t" x="130.0" y="129.0">Test-writer</text><text class="s" x="130.0" y="148.0">MiMo V2.6 Pro</text></g><g class="n go"><rect x="250" y="110" width="180" height="56" rx="8"/><text class="t" x="340.0" y="129.0">Worker A</text><text class="s" x="340.0" y="148.0">DeepSeek V4.1</text></g><g class="n go"><rect x="460" y="110" width="180" height="56" rx="8"/><text class="t" x="550.0" y="129.0">Worker B</text><text class="s" x="550.0" y="148.0">Muse 1.3</text></g><path class="ar" d="M130 166 L130 188 L550 188 L550 166"/><line class="ar" x1="340" y1="166" x2="340" y2="208" marker-end="url(#a)"/><g class="n sc"><rect x="240" y="210" width="200" height="56" rx="8"/><text class="t" x="340.0" y="229.0">Gates</text><text class="s" x="340.0" y="248.0">Tests, scope, security</text></g><line class="ar" x1="340" y1="266" x2="340" y2="298" marker-end="url(#a)"/><g class="n gt"><rect x="240" y="300" width="200" height="56" rx="8"/><text class="t" x="340.0" y="319.0">Judge</text><text class="s" x="340.0" y="338.0">Sol, if both pass</text></g><line class="ar" x1="340" y1="356" x2="340" y2="388" marker-end="url(#a)"/><g class="n go"><rect x="240" y="390" width="200" height="56" rx="8"/><text class="t" x="340.0" y="409.0">First review</text><text class="s" x="340.0" y="428.0">Muse or MiMo Pro</text></g><line class="ar" x1="340" y1="446" x2="340" y2="478" marker-end="url(#a)"/><g class="n gt"><rect x="240" y="480" width="200" height="56" rx="8"/><text class="t" x="340.0" y="499.0">Senior review</text><text class="s" x="340.0" y="518.0">Sol, risky tasks</text></g><line class="ar" x1="340" y1="536" x2="340" y2="568" marker-end="url(#a)"/><g class="n sc"><rect x="240" y="570" width="200" height="56" rx="8"/><text class="t" x="340.0" y="589.0">Merge or sign-off</text><text class="s" x="340.0" y="608.0">Opus signs risky work</text></g><path class="ar" d="M440 238 L560 238 L560 298" marker-end="url(#a)"/><g class="n go"><rect x="480" y="300" width="160" height="56" rx="8"/><text class="t" x="560.0" y="319.0">MiMo V2.6 Pro</text><text class="s" x="560.0" y="338.0">Retry 1</text></g><line class="ar" x1="560" y1="356" x2="560" y2="388" marker-end="url(#a)"/><g class="n gt"><rect x="480" y="390" width="160" height="56" rx="8"/><text class="t" x="560.0" y="409.0">GPT-5.6 Sol</text><text class="s" x="560.0" y="428.0">Retry 2</text></g><line class="ar" x1="560" y1="446" x2="560" y2="478" marker-end="url(#a)"/><g class="n cl"><rect x="480" y="480" width="160" height="56" rx="8"/><text class="t" x="560.0" y="499.0">Opus 5.5</text><text class="s" x="560.0" y="518.0">Retry 3, 2 a day</text></g></svg></div>
+<p>Three agents build in parallel. The tests must fail on the old code before they count, the gates check tests, scope and security, and a reviewer from a different model family reads every change. Anything that fails climbs the retry chain on the right, and if the whole chain fails, the orchestrator decides what happens next.</p>
+<div class="fig"><svg viewBox="0 0 680 646" role="img" aria-labelledby="t2499 d2499"><title id="t2499">Per-task pipeline</title><desc id="d2499">Context pack, then test-writer and two workers in parallel, gates, judge, first and senior review, merge; failures climb MiMo Pro, Sol, Opus, then go to the orchestrator for triage.</desc><defs><marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="n sc"><rect x="240" y="20" width="200" height="56" rx="8"/><text class="t" x="340" y="39">Context pack</text><text class="s" x="340" y="58">Script, no model</text></g>
+<path class="ar" d="M340 76 L340 92 L130 92 L130 108" marker-end="url(#a3)"/><line class="ar" x1="340" y1="76" x2="340" y2="108" marker-end="url(#a3)"/><path class="ar" d="M340 92 L550 92 L550 108" marker-end="url(#a3)"/>
+<g class="n go"><rect x="40" y="110" width="180" height="56" rx="8"/><text class="t" x="130" y="129">Test-writer</text><text class="s" x="130" y="148">MiMo V2.6 Pro</text></g>
+<g class="n go"><rect x="250" y="110" width="180" height="56" rx="8"/><text class="t" x="340" y="129">Worker A</text><text class="s" x="340" y="148">DeepSeek V4.1</text></g>
+<g class="n go"><rect x="460" y="110" width="180" height="56" rx="8"/><text class="t" x="550" y="129">Worker B</text><text class="s" x="550" y="148">Muse 1.3</text></g>
+<path class="ar" d="M130 166 L130 188 L550 188 L550 166"/><line class="ar" x1="340" y1="166" x2="340" y2="208" marker-end="url(#a3)"/>
+<g class="n sc"><rect x="240" y="210" width="200" height="56" rx="8"/><text class="t" x="340" y="229">Gates</text><text class="s" x="340" y="248">Tests, scope, security</text></g><line class="ar" x1="340" y1="266" x2="340" y2="298" marker-end="url(#a3)"/>
+<g class="n gt"><rect x="240" y="300" width="200" height="56" rx="8"/><text class="t" x="340" y="319">Judge</text><text class="s" x="340" y="338">Sol, if both pass</text></g><line class="ar" x1="340" y1="356" x2="340" y2="388" marker-end="url(#a3)"/>
+<g class="n go"><rect x="240" y="390" width="200" height="56" rx="8"/><text class="t" x="340" y="409">First review</text><text class="s" x="340" y="428">Muse or MiMo Pro</text></g><line class="ar" x1="340" y1="446" x2="340" y2="478" marker-end="url(#a3)"/>
+<g class="n gt"><rect x="240" y="480" width="200" height="56" rx="8"/><text class="t" x="340" y="499">Senior review</text><text class="s" x="340" y="518">Sol, risky tasks</text></g><line class="ar" x1="340" y1="536" x2="340" y2="568" marker-end="url(#a3)"/>
+<g class="n sc"><rect x="240" y="570" width="200" height="56" rx="8"/><text class="t" x="340" y="589">Merge or sign-off</text><text class="s" x="340" y="608">Claude signs risky work</text></g>
+<path class="ar" d="M440 238 L560 238 L560 298" marker-end="url(#a3)"/>
+<g class="n go"><rect x="480" y="300" width="160" height="56" rx="8"/><text class="t" x="560" y="319">MiMo V2.6 Pro</text><text class="s" x="560" y="338">Retry 1</text></g><line class="ar" x1="560" y1="356" x2="560" y2="388" marker-end="url(#a3)"/>
+<g class="n gt"><rect x="480" y="390" width="160" height="56" rx="8"/><text class="t" x="560" y="409">GPT-5.6 Sol</text><text class="s" x="560" y="428">Retry 2</text></g><line class="ar" x1="560" y1="446" x2="560" y2="478" marker-end="url(#a3)"/>
+<g class="n cl"><rect x="480" y="480" width="160" height="56" rx="8"/><text class="t" x="560" y="499">Opus 5.5</text><text class="s" x="560" y="518">Retry 3, 2 a day</text></g><line class="ar" x1="560" y1="536" x2="560" y2="568" marker-end="url(#a3)"/>
+<g class="n cl"><rect x="480" y="570" width="160" height="56" rx="8"/><text class="t" x="560" y="589">Orchestrator</text><text class="s" x="560" y="608">Triage if all fail</text></g></svg></div>
 <div class="tw"><table>
 <thead><tr><th>Task type</th><th>Builds it</th><th>Tests</th><th>First review</th><th>Retry chain</th></tr></thead>
 <tbody>
 <tr><td>feature, debug, data</td><td>DeepSeek V4.1 and Muse compete</td><td>MiMo V2.6 Pro</td><td>Muse or MiMo Pro, whichever didn't write the winner</td><td>MiMo V2.6 Pro, Sol, Opus</td></tr>
 <tr><td>ui</td><td>DeepSeek V4.1 and Muse compete, plus Gemini visual QA</td><td>MiMo V2.6 Pro, if there's logic</td><td>Same as above</td><td>Kimi K3, Sol, Opus</td></tr>
 <tr><td>patch</td><td>DeepSeek V4.1</td><td>MiMo V2.6 Pro</td><td>Muse; skipped under 20 lines, batch-reviewed later</td><td>Muse, MiMo V2.6 Pro, Sol, Opus</td></tr>
-<tr><td>long</td><td>DeepSeek V4.1, overnight</td><td>MiMo V2.6 Pro</td><td>Muse, then Sol always</td><td>Muse, MiMo V2.6 Pro, Sol, Opus</td></tr>
-<tr><td>bulk</td><td>MiMo V2.6 Flash, overnight</td><td>None</td><td>Batched at milestone end</td><td>DeepSeek V4.1, Muse</td></tr>
-<tr><td>any, risk high</td><td>Always two competing workers</td><td>As for its type</td><td>Plus Sol senior review and your Opus sign-off</td><td>As for its type</td></tr>
+<tr><td>long</td><td>DeepSeek V4.1, any time of day</td><td>MiMo V2.6 Pro</td><td>Muse, then Sol always</td><td>Muse, MiMo V2.6 Pro, Sol, Opus</td></tr>
+<tr><td>bulk</td><td>MiMo V2.6 Flash, any time of day</td><td>None</td><td>Batched at milestone end</td><td>DeepSeek V4.1, Muse</td></tr>
+<tr><td>any, risk high</td><td>Always two competing workers</td><td>As for its type</td><td>Plus Sol senior review and the orchestrator's Opus sign-off</td><td>As for its type</td></tr>
 </tbody></table></div>
 <ul class="notes">
 <li>When Sol wrote the code (retry 2), Kimi K3 does the senior review instead, so no model reviews its own family.</li>
-<li>Opus retries are capped at 2 a day. Tasks that hit the cap wait and resume the next day.</li>
+<li>Opus retries are capped at 2 a day. Tasks that hit the cap wait and resume the next day. The orchestrator's wakes have a separate cap.</li>
 <li>DeepSeek, Muse and Sol run at xhigh effort, the setting their benchmark scores were measured at.</li>
+<li>Long and bulk tasks no longer wait for the night: <code>OFFPEAK_ONLY</code> is off. Turn it back on in <code>routing.sh</code> if they start crowding the Go pool during the day.</li>
 <li>If GOAT is full, visual QA falls back to GLM-5.3 Flash on Go, which reads images better than DeepSeek Vision.</li>
 </ul>
 </section>
 
 <section>
 <h2>Profiles</h2>
-<p>One switch changes how much checking the pipeline does. Set the repo's usual profile in <code>routing.sh</code>, override it for a single run with <code>PROFILE=fast .agents/runner.sh run</code>, or for one task with <code>profile: risky</code> in its front matter.</p>
+<p>One switch changes how much checking the pipeline does. Set the repo's usual profile in <code>routing.sh</code>, override it for a single run with <code>PROFILE=fast .agents/runner.sh run</code>, for one task with <code>profile: risky</code> in its front matter, or for a whole goal with <code>orchestrate.sh goal "…" risky</code> (or ask dsh to queue it as risky).</p>
 <div class="tw"><table>
 <thead><tr><th>Profile</th><th>Use it for</th><th>What changes</th></tr></thead>
 <tbody>
-<tr><td>default</td><td>Most work, like the dashboard backlogs</td><td>Everything on this page as drawn: two workers on feature, debug, data and UI tasks; senior review on risky and long tasks; one task at a time.</td></tr>
-<tr><td>risky</td><td>Auth, payments, migrations, production data</td><td>Every task is treated as high risk: two workers, the judge, Sol's senior review and your Opus sign-off. No review shortcuts, one task at a time. Uses noticeably more Opus quota.</td></tr>
-<tr><td>fast</td><td>Prototypes, internal tools, urgent backlogs</td><td>One worker unless a task is marked high risk, no judge, no off-peak wait, three tasks in parallel, one-minute polling, shorter pauses, and DeepSeek at high instead of xhigh effort.</td></tr>
+<tr><td>default</td><td>Most work, like the dashboard backlogs</td><td>Everything on this page as drawn: two workers on feature, debug, data and UI tasks; senior review on risky and long tasks; one task at a time; orchestrator wakes at most every 30 minutes, 10 a day.</td></tr>
+<tr><td>risky</td><td>Auth, payments, migrations, production data</td><td>Every task is treated as high risk: two workers, the judge, Sol's senior review and the orchestrator's Opus sign-off. No review shortcuts, one task at a time. The orchestrator gets 16 wakes a day because it signs off every task. Uses noticeably more Opus quota.</td></tr>
+<tr><td>fast</td><td>Prototypes, internal tools, urgent backlogs</td><td>One worker unless a task is marked high risk, no judge, three tasks in parallel, one-minute polling, shorter pauses, orchestrator wakes up to every 10 minutes, and DeepSeek at high instead of xhigh effort.</td></tr>
 </tbody></table></div>
 </section>
 
@@ -126,7 +416,7 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);paddin
 <li>You have several tasks, not one, and don't need the result within the hour.</li>
 <li>The main open question is how to build it, not what it should look like or do.</li>
 </ul>
-<p>If any of these is false, work interactively instead: you and one strong model in a tight loop, then hand the settled, well-defined parts to the pipeline.</p>
+<p>If any of these is false, work interactively instead: you and one strong model in a tight loop, then hand the settled, well-defined parts to the pipeline. DeepSeek Harness is a good place to turn a fuzzy idea into a brief that passes this test.</p>
 
 <h2 style="margin-top:34px">Which profile</h2>
 <div class="tw"><table class="map">
@@ -146,11 +436,11 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);paddin
 <tr><td>New project, greenfield</td><td>Decide architecture interactively with Opus, have one long task scaffold the skeleton and test harness, then switch to the pipeline.</td><td>Plan first, then orchestrator-workers</td></tr>
 <tr><td>Data engineering</td><td>Pipeline, default profile, with a data gate that runs transforms on small synthetic data and checks schema, row counts and nulls. Risky profile for migrations and backfills.</td><td>Orchestrator-workers plus contract tests</td></tr>
 <tr><td>Design-led UI or a portfolio</td><td>Iterate on the look interactively (Opus in Claude Code or Claude Design), reviewing screenshots each round. Send implementation chores (components, content, accessibility fixes) to the pipeline, fast or default.</td><td>Human-in-the-loop iteration, then pipeline</td></tr>
-<tr><td>Urgent production bug</td><td>One agent interactively: DeepSeek or Muse in Pi, Opus for hard ones. Reproduce first, fix, run the gate scripts by hand. Afterwards queue a debug task to add the regression test.</td><td>Single agent, reproduce-fix-verify</td></tr>
+<tr><td>Urgent production bug</td><td>One agent interactively: DeepSeek or Muse in omp, Opus for hard ones. Reproduce first, fix, run the gate scripts by hand. Afterwards queue a debug task to add the regression test.</td><td>Single agent, reproduce-fix-verify</td></tr>
 <tr><td>Large refactor or migration</td><td>Opus plans it. Mechanical parts become a script that rewrites the code, or bulk tasks; the rest a chain of tasks linked with <code>after:</code>. Risky profile if shared core code changes.</td><td>Plan, then deterministic transform or task chain</td></tr>
 <tr><td>Prototype, hackathon, internal tool</td><td>Fast profile, or interactive if it changes every hour.</td><td>Single worker, light verification</td></tr>
 <tr><td>Legacy code without tests</td><td>First add tests that pin down current behaviour, interactively or as pipeline tasks, then use the default profile.</td><td>Tests first, then pipeline</td></tr>
-<tr><td>Research, spikes, library comparisons</td><td>Chat or notebooks. Nothing to test until you know what you want.</td><td>Interactive exploration</td></tr>
+<tr><td>Research, spikes, library comparisons</td><td>Chat, notebooks or DeepSeek Harness. Nothing to test until you know what you want.</td><td>Interactive exploration</td></tr>
 <tr><td>Docs, READMEs, content updates</td><td>Bulk or patch tasks, fast profile.</td><td>Single worker, batched review</td></tr>
 </tbody></table></div>
 
@@ -159,45 +449,63 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);paddin
 <thead><tr><th>Project</th><th>Approach</th></tr></thead>
 <tbody>
 <tr><td>Dashboard repo 1 and 2</td><td>Pipeline, default profile. Mark auth, permissions and data-model changes <code>profile: risky</code>.</td></tr>
-<tr><td>Data engineering project</td><td>Interactive with Opus for the first week (storage, orchestrator, schema, skeleton), then the pipeline on default. Risky for migrations and backfills.</td></tr>
+<tr><td>Data engineering project</td><td>Profile the source files in DeepSeek Harness, then work interactively with Opus for the first week (storage, orchestrator, schema, skeleton), then the pipeline on default. Risky for migrations and backfills.</td></tr>
 <tr><td>Portfolio</td><td>Interactive for the design. Pipeline on fast for implementation chores once the look is settled.</td></tr>
 </tbody></table></div>
 </section>
 
 <section>
 <h2>Harnesses compared</h2>
-<p>A harness is the program that runs the model: it gives it tools, edits files and keeps the session. Your setup uses Claude Code for Opus and Oh My Pi for everything else, with plain Pi as the fallback. The two web UIs you use, ompweb and pi-web, are closely related: ompweb is a fork of pi-web adapted for Oh My Pi. They don't change what the agent can do; they change how you work with it.</p>
-<div class="tw"><table class="map">
-<thead><tr><th>&nbsp;</th><th>Oh My Pi + ompweb</th><th>Pi + pi-web</th><th>Claude Code</th></tr></thead>
+<p>A harness is the program that runs the model: it gives it tools, edits files and keeps the session. Your setup uses Claude Code for Opus, Oh My Pi for every pipeline call, plain Pi as the fallback, and DeepSeek Harness as your workbench. ompweb and pi-web are closely related: ompweb is a fork of pi-web adapted for Oh My Pi. Web UIs don't change what the agent can do; they change how you work with it.</p>
+<div class="tw"><table class="cmp">
+<thead><tr><th>&nbsp;</th><th>Oh My Pi + ompweb</th><th>Pi + pi-web</th><th>Claude Code</th><th>DeepSeek Harness</th></tr></thead>
 <tbody>
-<tr><td>Models in your setup</td><td>Everything on Go and GOAT through 9router</td><td>Everything on Go and GOAT through 9router</td><td>Claude only, on your Pro login</td></tr>
-<tr><td>What it costs you</td><td>Go and GOAT pools (flat fee)</td><td>Go and GOAT pools (flat fee)</td><td>Pro quota, the scarcest thing you have</td></tr>
-<tr><td>Coding tools</td><td>The richest: language-server code navigation, a real debugger, hash-anchored edits that cut output tokens, Python and JavaScript kernels, subagents</td><td>Minimal core (read, edit, write, bash) plus extensions</td><td>Mature agent loop, subagents, hooks, slash commands, plan mode, permission controls</td></tr>
-<tr><td>Web UI</td><td>ompweb: live chat, session history by project, fork a session or branch from any message, switch git worktrees, file and image preview beside the chat, context and cost display, and settings for models, skills, plugins and MCP servers</td><td>pi-web: live chat and session history beside the CLI, project navigation, and model, API key and skill management</td><td>Official desktop and mobile apps; start or check sessions from your phone</td></tr>
-<tr><td>Access control</td><td>Localhost by default; optional password sign-in (<code>OMP_WEB_PASSWORD</code>)</td><td>Localhost by default; optional password (<code>PI_WEB_PASSWORD</code>)</td><td>Your Claude account</td></tr>
-<tr><td>Scripting</td><td><code>omp -p</code>, RPC mode, ACP</td><td><code>pi -p</code>, RPC mode</td><td><code>claude -p</code></td></tr>
-<tr><td>Stability</td><td>Very fast release pace; ompweb can update omp for you</td><td>Small and steady</td><td>Official, stable</td></tr>
-<tr><td>Role in the kit</td><td>Default harness for every cheap-model call</td><td>Drop-in fallback (<code>HARNESS=pi</code>); Paperclip's Pi adapter</td><td>/plan, /signoff and the last retry only</td></tr>
+<tr><td>Models in your setup</td><td>Everything on Go and GOAT through 9router</td><td>Everything on Go and GOAT through 9router</td><td>Claude only, on your Pro login</td><td>Any 9router model through a custom provider; DeepSeek on GOAT by default</td></tr>
+<tr><td>What it costs you</td><td>Go and GOAT pools (flat fee)</td><td>Go and GOAT pools (flat fee)</td><td>Pro quota, the scarcest thing you have</td><td>Go and GOAT pools, not counted by the kit's caps</td></tr>
+<tr><td>Coding tools</td><td>The richest: language-server code navigation, a real debugger, hash-anchored edits that cut output tokens, Python and JavaScript kernels, subagents</td><td>Minimal core (read, edit, write, bash) plus extensions</td><td>Mature agent loop, subagents, hooks, slash commands, plan mode, permission controls</td><td>Standard agent tools; reads <code>CLAUDE.md</code> and <code>AGENTS.md</code>; works with xlsx, csv, pdf and docx files</td></tr>
+<tr><td>Web UI</td><td>ompweb: live chat, session history by project, fork a session or branch from any message, switch git worktrees, file and image preview beside the chat, context and cost display, and settings for models, skills, plugins and MCP servers</td><td>pi-web: live chat and session history beside the CLI, project navigation, and model, API key and skill management</td><td>Official desktop and mobile apps; start or check sessions from your phone</td><td>dsh web: chat, several workspaces, file previews, a step-by-step view of each session, scheduled tasks</td></tr>
+<tr><td>Access control</td><td>Localhost by default; optional password sign-in (<code>OMP_WEB_PASSWORD</code>)</td><td>Localhost by default; optional password (<code>PI_WEB_PASSWORD</code>)</td><td>Your Claude account</td><td>Localhost only (<code>127.0.0.1:3080</code>); read-only and workspace-write sandbox modes</td></tr>
+<tr><td>Scripting</td><td><code>omp -p</code>, RPC mode, ACP</td><td><code>pi -p</code>, RPC mode</td><td><code>claude -p</code></td><td>Headless profile mode; scheduled tasks</td></tr>
+<tr><td>Stability</td><td>Very fast release pace; ompweb can update omp for you</td><td>Small and steady</td><td>Official, stable</td><td>Release candidate; breaking changes announced</td></tr>
+<tr data-only="single"><td>Role in the kit</td><td>Default harness for every cheap-model call</td><td>Drop-in fallback (<code>HARNESS=pi</code>); Paperclip's Pi adapter</td><td>The orchestrator (woken headless, or <code>/orchestrate</code> by hand) and the last retry</td><td>Outside the loop. Your workbench and control desk: briefs, prompts, second opinions, reports, and allow-listed kit commands through <code>kitctl</code></td></tr>
+<tr data-only="multi"><td>Role in the kit</td><td>Default harness for every cheap-model call</td><td>Drop-in fallback (<code>HARNESS=pi</code>); Paperclip's Pi adapter</td><td>The orchestrator (woken headless, or <code>/orchestrate</code> by hand) and the last retry</td><td>Above the repos. Workbench, control desk and portfolio orchestrator: one backlog, goals queued per repo through <code>kitctl</code>, shared budgets kept in check</td></tr>
 </tbody></table></div>
 
 <h2 style="margin-top:34px">When to use which harness</h2>
 <div class="tw"><table class="map">
 <thead><tr><th>Situation</th><th>Harness</th><th>Why</th></tr></thead>
 <tbody>
-<tr><td>Planning milestones, signing off, architecture decisions</td><td>Claude Code</td><td>Opus leads every coding benchmark, and these few decisions shape everything downstream.</td></tr>
+<tr><td>Planning milestones, triage, signing off</td><td>Claude Code, headless via <code>orchestrate.sh</code></td><td>Opus leads every coding benchmark, and these few decisions shape everything downstream. The scripts wake it only when one is waiting.</td></tr>
+<tr><td>Architecture decisions, or steering a milestone yourself</td><td>Claude Code, interactive</td><td>Talk it through, then <code>/orchestrate</code> or <code>/plan</code> with you in the loop.</td></tr>
 <tr><td>Design-led work where quality matters most (portfolio look, data project's first week)</td><td>Claude Code</td><td>Worth the Pro quota for short, high-leverage sessions. Watch the weekly cap.</td></tr>
-<tr><td>The pipeline's workers, reviewers and chief of staff</td><td>omp CLI (run by the kit)</td><td>Flat-fee models, pinned tools, token-saving edits, scriptable one-shot mode.</td></tr>
+<tr><td>Writing a goal brief, or prompts for Gemini, Claude chat or omp</td><td>DeepSeek Harness</td><td>Grounded in the repo's own instructions, costs no Pro quota, and keeps your prompt library in one place.</td></tr>
+<tr><td>A second opinion on a plan or brief</td><td>DeepSeek Harness, switched to Sol or Kimi</td><td>A different model family from the one that will build it.</td></tr>
+<tr><td>Checking status, queuing a goal, handling a task parked for you</td><td>DeepSeek Harness, through <code>kitctl</code></td><td>Plain-language control of the pipeline, limited to the kit's own allow-listed commands and logged.</td></tr>
+<tr><td>The pipeline's workers, reviewers and context packs</td><td>omp CLI (run by the kit)</td><td>Flat-fee models, pinned tools, token-saving edits, scriptable one-shot mode.</td></tr>
 <tr><td>Interactive work with cheap models: urgent bugs, spikes, refactors</td><td>omp + ompweb</td><td>omp's debugger and code navigation, with files and previews beside the chat. Fork a session to try a second approach without losing the first.</td></tr>
 <tr><td>Checking what a pipeline task actually did</td><td>ompweb</td><td>Switch to the task's worktree (<code>.worktrees/T-012</code>) and browse its files and diff. Pipeline runs don't save chat sessions, so the files are what you inspect.</td></tr>
 <tr><td>Reviewing a design change visually</td><td>omp + ompweb</td><td>Image and PDF preview next to the conversation.</td></tr>
 <tr><td>Pairing, or watching a session from another device</td><td>omp <code>/collab</code></td><td>A browser link to the live session, view-only or shared control.</td></tr>
 <tr><td>omp broke after an update</td><td>Pi + pi-web</td><td>Same models and nearly the same web UI; set <code>HARNESS=pi</code> and the kit carries on.</td></tr>
-<tr><td>Quick question or tiny change with a cheap model</td><td>omp or Pi, whichever is open</td><td>Either is fine; don't spend Pro quota on it.</td></tr>
+<tr><td>Quick question or tiny change with a cheap model</td><td>omp, Pi or DeepSeek Harness, whichever is open</td><td>Any of them is fine; don't spend Pro quota on it.</td></tr>
 </tbody></table></div>
 <ul class="notes">
-<li>Both web UIs drive an agent that can run any command on the machine. They bind to localhost by default; set a password, and for remote use go through a VPN or an HTTPS reverse proxy, never a public port.</li>
+<li>Every web UI here drives an agent that can run commands on your Mac. Keep them on localhost, set a password where one is offered, and for remote use go through a VPN or an HTTPS reverse proxy, never a public port.</li>
 <li>ompweb's Models panel edits the same <code>~/.omp/agent/models.yml</code> the kit relies on. Keep the 9router entries, including the DeepSeek compat settings, if you change models there.</li>
-<li>Claude Code only ever runs on your Pro login. Pointing it at 9router or another provider would take it off the subscription.</li>
+<li>Claude Code only ever runs on your Pro login. Pointing it at 9router or another provider would take it off the subscription, and DeepSeek Harness's Claude Code subagent stays switched off.</li>
+</ul>
+</section>
+
+<section>
+<h2>Running it on your Mac</h2>
+<p>The kit's scripts run on macOS as they are. What matters is the setup around them.</p>
+<ul class="notes">
+<li>Install with Homebrew: <code>brew install bash coreutils jq tmux gh node gitleaks semgrep ripgrep</code>. Coreutils provides <code>gtimeout</code>, which the kit needs. Put <code>/opt/homebrew/bin</code> first in your PATH; <code>which bash</code> should show <code>/opt/homebrew/bin/bash</code>.</li>
+<li>Start the loop with <code>tmux new -s agents 'caffeinate -is .agents/loop.sh'</code> so the Mac stays awake while it runs. Keep it on power; closing the lid on battery still puts it to sleep.</li>
+<li>Use <code>loop.sh</code>, not cron. Claude Code keeps its login in the macOS Keychain, which cron jobs often can't read, so the orchestrator's wakes would fail.</li>
+<li>Keep repos in <code>~/code</code>, outside iCloud-synced Desktop and Documents folders. Sync fights with git worktrees.</li>
+<li>9router listens on <code>127.0.0.1:20128</code> directly, with nothing to forward.</li>
+<li>Add <code>.DS_Store</code> to <code>.gitignore</code> in the kit repo and in each project repo.</li>
 </ul>
 </section>
 
@@ -215,11 +523,13 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);paddin
 <tr><td>UI retry, review of Sol's code</td><td>Kimi K3 (GOAT)</td><td>Kimi K3 (Go)</td><td>MiMo V2.6 Pro (Go)</td><td>Pause 30 min</td></tr>
 <tr><td>Visual QA</td><td>Gemini 3.8 Flash (GOAT)</td><td>GLM-5.3 Flash (Go)</td><td>None</td><td>Pause 30 min</td></tr>
 <tr><td>Bulk edits</td><td>MiMo V2.6 Flash (Go)</td><td>MiMo V2.6 Flash (GOAT)</td><td>Space Bunny Free (Go, free)</td><td>Pause 30 min</td></tr>
-<tr><td>Chief of staff, repo map</td><td>Muse 1.3 (Go)</td><td>Muse 1.3 (GOAT)</td><td>GLM-5.3 Flash (Go), then OpenCode Free</td><td>Pause 30 min</td></tr>
+<tr><td>Context pack, status note, repo map</td><td>Muse 1.3 (Go)</td><td>Muse 1.3 (GOAT)</td><td>GLM-5.3 Flash (Go), then OpenCode Free</td><td>Pause 30 min</td></tr>
+<tr><td>Orchestrator</td><td>Opus 5.5 (Pro); Sonnet for wrap-ups</td><td>None</td><td>None</td><td>Backs off an hour; tasks keep running, decisions wait</td></tr>
 <tr><td>Last retry</td><td>Opus 5.5 (Pro)</td><td>None</td><td>None</td><td>Waits for the next day's allowance</td></tr>
+<tr><td>Workbench and control desk (dsh)</td><td>DeepSeek V4.1 (GOAT)</td><td>DeepSeek V4.1 (Go), switched by you</td><td>None</td><td>Run the kit commands yourself; the pipeline doesn't wait on dsh</td></tr>
 </tbody></table></div>
 <ul class="notes">
-<li>GOAT options are skipped once the daily GOAT call cap is reached.</li>
+<li>GOAT options are skipped once the daily GOAT call cap is reached. That cap counts pipeline calls only, not your dsh chats.</li>
 <li>GLM-5.3 Flash is the general backup because no worker uses its family, so it can review anyone's code.</li>
 </ul>
 <h2 style="margin-top:34px">Free models considered</h2>
@@ -238,27 +548,51 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);paddin
 
 <section>
 <h2>If you move to Paperclip</h2>
-<p>Paperclip replaces the runner, the task files and cron. The models, prompts, routing rules and gate scripts carry over unchanged. Keep the org flat: you are the board, and no management layer sits between the CTO and the seats.</p>
-<div class="fig"><svg viewBox="0 0 680 310" role="img" aria-labelledby="t4183 d4183"><title id="t4183">Paperclip layout</title><desc id="d4183">You as board; Opus CTO and retry engineer; Muse chief of staff; Go build seats, GOAT QA seats, dispatcher and gatekeeper scripts.</desc><defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="n sc"><rect x="260" y="20" width="160" height="56" rx="8"/><text class="t" x="340.0" y="39.0">You, the board</text><text class="s" x="340.0" y="58.0">Goals, approvals</text></g><path class="ar" d="M340 76 L340 98 L305 98 L305 118" marker-end="url(#a)"/><path class="ar" d="M340 98 L545 98 L545 118" marker-end="url(#a)"/><g class="n cl"><rect x="40" y="120" width="150" height="56" rx="8"/><text class="t" x="115.0" y="139.0">Retry engineer</text><text class="s" x="115.0" y="158.0">Opus, 2 a day</text></g><g class="n cl"><rect x="215" y="120" width="180" height="56" rx="8"/><text class="t" x="305.0" y="139.0">CTO</text><text class="s" x="305.0" y="158.0">Opus, plans, signs</text></g><line class="ar" x1="215" y1="148" x2="192" y2="148" marker-end="url(#a)"/><g class="n go"><rect x="450" y="120" width="190" height="56" rx="8"/><text class="t" x="545.0" y="139.0">Chief of staff</text><text class="s" x="545.0" y="158.0">Muse, triage, status</text></g><path class="ar" d="M305 176 L305 208 L107 208 L107 238" marker-end="url(#a)"/><path class="ar" d="M305 208 L262 208 L262 238" marker-end="url(#a)"/><path class="ar" d="M545 176 L545 208 L417 208 L417 238" marker-end="url(#a)"/><path class="ar" d="M545 208 L572 208 L572 238" marker-end="url(#a)"/><g class="n go"><rect x="40" y="240" width="135" height="56" rx="8"/><text class="t" x="107.5" y="259.0">Build seats</text><text class="s" x="107.5" y="278.0">Go via 9router</text></g><g class="n gt"><rect x="195" y="240" width="135" height="56" rx="8"/><text class="t" x="262.5" y="259.0">QA seats</text><text class="s" x="262.5" y="278.0">GOAT via 9router</text></g><g class="n sc"><rect x="350" y="240" width="135" height="56" rx="8"/><text class="t" x="417.5" y="259.0">Dispatcher</text><text class="s" x="417.5" y="278.0">routing.sh rules</text></g><g class="n sc"><rect x="505" y="240" width="135" height="56" rx="8"/><text class="t" x="572.5" y="259.0">Gatekeeper</text><text class="s" x="572.5" y="278.0">Gate scripts</text></g></svg></div>
+<p data-only="single">Paperclip replaces the runner, the task files and cron. The models, prompts, routing rules and gate scripts carry over unchanged. Keep the org flat: you are the board, and no management layer sits between the CTO and the seats. DeepSeek Harness stays outside Paperclip as your workbench; its briefs become the goals you hand the CTO.</p>
+<p data-only="multi">With dsh coordinating the four repos, the main reason to move to Paperclip, one board across all repos, is mostly covered. Paperclip still makes sense once you regularly run three or more tasks in parallel. If you do move, Paperclip replaces the runner, the task files and cron. The models, prompts, routing rules and gate scripts carry over unchanged. Keep the org flat: you are the board, and no management layer sits between the CTO and the seats. DeepSeek Harness stays outside Paperclip as your workbench; its briefs become the goals you hand the CTO.</p>
+<div class="fig"><svg viewBox="0 0 680 310" role="img" aria-labelledby="t4183 d4183"><title id="t4183">Paperclip layout</title><desc id="d4183">You as board; Opus CTO as orchestrator and retry engineer; Muse for context and status; Go build seats, GOAT QA seats, dispatcher and gatekeeper scripts.</desc><defs><marker id="a4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="n sc"><rect x="260" y="20" width="160" height="56" rx="8"/><text class="t" x="340" y="39">You, the board</text><text class="s" x="340" y="58">Goals, approvals</text></g>
+<path class="ar" d="M340 76 L340 98 L305 98 L305 118" marker-end="url(#a4)"/><path class="ar" d="M340 98 L545 98 L545 118" marker-end="url(#a4)"/>
+<g class="n cl"><rect x="40" y="120" width="150" height="56" rx="8"/><text class="t" x="115" y="139">Retry engineer</text><text class="s" x="115" y="158">Opus, 2 a day</text></g>
+<g class="n cl"><rect x="215" y="120" width="180" height="56" rx="8"/><text class="t" x="305" y="139">CTO</text><text class="s" x="305" y="158">Opus, orchestrates</text></g><line class="ar" x1="215" y1="148" x2="192" y2="148" marker-end="url(#a4)"/>
+<g class="n go"><rect x="450" y="120" width="190" height="56" rx="8"/><text class="t" x="545" y="139">Context and status</text><text class="s" x="545" y="158">Muse, packs, notes</text></g>
+<path class="ar" d="M305 176 L305 208 L107 208 L107 238" marker-end="url(#a4)"/><path class="ar" d="M305 208 L262 208 L262 238" marker-end="url(#a4)"/><path class="ar" d="M545 176 L545 208 L417 208 L417 238" marker-end="url(#a4)"/><path class="ar" d="M545 208 L572 208 L572 238" marker-end="url(#a4)"/>
+<g class="n go"><rect x="40" y="240" width="135" height="56" rx="8"/><text class="t" x="107.5" y="259">Build seats</text><text class="s" x="107.5" y="278">Go via 9router</text></g>
+<g class="n gt"><rect x="195" y="240" width="135" height="56" rx="8"/><text class="t" x="262.5" y="259">QA seats</text><text class="s" x="262.5" y="278">GOAT via 9router</text></g>
+<g class="n sc"><rect x="350" y="240" width="135" height="56" rx="8"/><text class="t" x="417.5" y="259">Dispatcher</text><text class="s" x="417.5" y="278">routing.sh rules</text></g>
+<g class="n sc"><rect x="505" y="240" width="135" height="56" rx="8"/><text class="t" x="572.5" y="259">Gatekeeper</text><text class="s" x="572.5" y="278">Gate scripts</text></g></svg></div>
 <div class="tw"><table class="map">
 <thead><tr><th>Today</th><th>In Paperclip</th></tr></thead>
 <tbody>
 <tr><td>Task files in .agents/tasks/</td><td>Issues, labelled with type and risk</td></tr>
 <tr><td>runner.sh scheduling and retry chain</td><td>Dispatcher, a process agent running the same routing.sh</td></tr>
 <tr><td>gates/*.sh</td><td>Gatekeeper, a process agent running the same scripts</td></tr>
-<tr><td>cos.sh</td><td>Chief of staff on Muse, with the same prompts</td></tr>
-<tr><td>/plan and /signoff</td><td>CTO assignments and Paperclip approvals</td></tr>
-<tr><td>cron or loop.sh</td><td>Heartbeats and wake-on-event; Opus agents wake only on assignment</td></tr>
+<tr><td>orchestrate.sh events</td><td>Issues assigned to the CTO: plan, triage, sign-off, wrap-up</td></tr>
+<tr><td>cos.sh</td><td>A Muse seat for context packs and status notes</td></tr>
+<tr><td>/orchestrate, /plan and /signoff</td><td>Working with the CTO directly, and Paperclip approvals</td></tr>
+<tr><td>loop.sh in tmux</td><td>Heartbeats and wake-on-event; Opus agents wake only on assignment</td></tr>
 <tr><td>Overflow in lib.sh</td><td>A small wrapper script the Pi adapter calls instead of pi</td></tr>
+<tr data-only="single"><td>DeepSeek Harness and kitctl</td><td>Unchanged as your workbench; kitctl's goal command becomes "create an issue for the CTO"</td></tr>
+<tr data-only="multi"><td>DeepSeek Harness, kitctl and the backlog</td><td>The backlog becomes Paperclip's board; dsh stays your workbench, and kitctl's goal command becomes "create an issue for the CTO"</td></tr>
 </tbody></table></div>
 <ul class="notes">
 <li>Build seats: DeepSeek V4.1, Muse 1.3, MiMo V2.6 Pro and MiMo Flash, one Paperclip agent per model, role passed as a skill.</li>
 <li>QA seats: GPT-5.6 Sol, Kimi K3 and Gemini 3.8 Flash.</li>
-<li>Opus agents use the claude_local adapter; dispatcher and gatekeeper use process. Paperclip ships a Pi adapter, not an omp one, so seats and the chief of staff would either use pi_local through 9router or a process adapter that calls the kit's omp wrapper.</li>
+<li>Opus agents use the claude_local adapter; dispatcher and gatekeeper use process. Paperclip ships a Pi adapter, not an omp one, so the seats and the Muse context seat would either use pi_local through 9router or a process adapter that calls the kit's omp wrapper.</li>
 </ul>
 </section>
 
-<footer>Routing reflects September 2026 data from LiveBench (full table), llm-stats (full leaderboard including agents, tools and vision), Artificial Analysis and CursorBench 4.0. After two weeks, <code>.agents/stats.sh 14</code> shows how each model does on your own code; let that override the leaderboards.</footer>
+<footer data-only="single">Updated 3 October 2026 for kit v4.1 running on macOS, with DeepSeek Harness as your workbench and control desk. <code>kitctl</code> and the scheduled reports are planned and still to be built and tested. Routing reflects September 2026 data from LiveBench (full table), llm-stats (full leaderboard including agents, tools and vision), Artificial Analysis and CursorBench 4.0. After two weeks, <code>.agents/stats.sh 14</code> shows how each model does on your own code; let that override the leaderboards.</footer>
+<footer data-only="multi">Updated 3 October 2026 for kit v4.1 running on macOS across four repos, with DeepSeek Harness as workbench, control desk and portfolio orchestrator. <code>kitctl</code>, the backlog and the scheduled checks are planned and still to be built and tested; the budget split is a starting point. Routing reflects September 2026 data from LiveBench (full table), llm-stats (full leaderboard including agents, tools and vision), Artificial Analysis and CursorBench 4.0. After two weeks, <code>.agents/stats.sh 14</code> shows how each model does on your own code; let that override the leaderboards.</footer>
 </main>
+<script>
+(function(){var root=document.documentElement,btns=document.querySelectorAll(".seg button");
+function show(m){root.setAttribute("data-scale",m);
+btns.forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.set===m))});
+try{localStorage.setItem("scale",m)}catch(e){}
+try{history.replaceState(null,"",m==="multi"?"#multi":location.pathname+location.search)}catch(e){}}
+btns.forEach(function(b){b.addEventListener("click",function(){show(b.dataset.set)})});
+show(root.getAttribute("data-scale")||"single")})();
+</script>
 </body>
 </html>

@@ -3,6 +3,7 @@
 #   cos.sh pack "goal"   context summary for planning     -> .agents/context.md (orchestrate.sh runs this)
 #   cos.sh map           refresh REPO_MAP.md
 #   cos.sh status        write STATUS.md
+#   cos.sh conflicts     re-queue merge conflicts (no model; loop.sh runs it every pass in cos mode)
 #   cos.sh triage        re-queue merge conflicts; with ORCHESTRATOR=cos also triage stuck tasks
 #   cos.sh daily         status + triage (run from cron once a day)
 # With ORCHESTRATOR=claude (the default) stuck tasks go to Claude via orchestrate.sh, not to Muse.
@@ -56,15 +57,21 @@ replace_body() { # taskfile newbodyfile
   cat "$2" >>"$tmp"; mv "$tmp" "$1"
 }
 
+cmd_conflicts() {   # base moved underneath these: just redo them on the new base
+  local f
+  for f in $(task_files); do
+    [ "$(fm_get "$f" status)" = conflict ] || continue
+    echo "The integration branch changed; re-implement on the current code." >"$TASKS/$(fm_get "$f" id).note.md"
+    fm_set "$f" status queued; tlog "$f" "requeued after merge conflict"
+  done
+}
+
 cmd_triage() {
   local f id st pf out json action reason
   command -v jq >/dev/null || { echo "triage needs jq"; exit 1; }
+  cmd_conflicts
   for f in $(task_files); do
     st=$(fm_get "$f" status); id=$(fm_get "$f" id)
-    if [ "$st" = conflict ]; then   # base moved underneath it: just redo it on the new base
-      echo "The integration branch changed; re-implement on the current code." >"$TASKS/$id.note.md"
-      fm_set "$f" status queued; tlog "$f" "requeued after merge conflict"; continue
-    fi
     [ "$st" = stuck ] || continue
     [ "$ORCHESTRATOR" = claude ] && continue   # Claude triages these (orchestrate.sh)
     if [ "$(fm_get "$f" triaged)" = yes ]; then fm_set "$f" status needs-you; tlog "$f" "stuck twice: needs you"; continue; fi
@@ -90,7 +97,8 @@ case "${1:-}" in
   pack) cmd_pack "${2:-}" ;;
   map) cmd_map ;;
   status) cmd_status ;;
+  conflicts) cmd_conflicts ;;
   triage) cmd_triage ;;
   daily) cmd_triage; cmd_status ;;
-  *) sed -n '2,8p' "$0" ;;
+  *) sed -n '2,9p' "$0" ;;
 esac
