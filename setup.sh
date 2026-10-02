@@ -41,15 +41,9 @@ Done. Next:
   1. Edit .agents/routing.sh: HARNESS (omp or pi), ROUTER / GO / GOAT names (check: omp models 9router),
      MAIN_BRANCH and ALLOW_TRAINING for this repo.
   2. Edit .agents/gates/check.sh for this repo's test/lint/build commands. Fill in AGENTS.md.
-  3. Check everything:  .agents/doctor.sh && .agents/doctor.sh --models
+  3. Check everything:  .agents/doctor.sh && .agents/doctor.sh --models && .agents/doctor.sh --claude
   4. Commit the kit:  git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
-  5. Automate. Recommended, because the orchestrator runs claude and it may not log in from cron:
-       tmux new -s agents '.agents/loop.sh'
-     or with cron (crontab -e; the PATH line matters):
-       PATH=$PATH
-       NINEROUTER_API_KEY=<your 9router key>
-       */5 * * * * cd $REPO && .agents/runner.sh run >> .agents/logs/cron.log 2>&1
-       */5 * * * * cd $REPO && .agents/orchestrate.sh tick >> .agents/logs/cron.log 2>&1
-       0 8 * * *   cd $REPO && .agents/cos.sh daily  >> .agents/logs/cron.log 2>&1
+  5. Automate with the loop in tmux (not cron: on macOS cron can't read Claude's Keychain login):
+       cd $REPO && tmux new -s agents 'caffeinate -is .agents/loop.sh'
   6. Start a milestone:  .agents/orchestrate.sh goal "what you want built"
 EOF
