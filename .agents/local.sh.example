@@ -1,0 +1,18 @@
+# shellcheck shell=bash disable=SC2034
+# local.sh: this repo's own pipeline settings. Loaded at the end of routing.sh, so anything here wins
+# over the kit's defaults. setup.sh --update never touches this file. Commit it with the repo.
+# Uncomment only what this repo needs; everything else follows routing.sh.
+
+# ---- Repo ----
+# PROFILE=default                 # default | risky | fast (per run: PROFILE=fast .agents/runner.sh run)
+# ALLOW_TRAINING=no               # no for client or employer code: models that train on prompts never run
+# MAIN_BRANCH=main
+
+# ---- Caps (lower these when several repos share one Pro plan and one GOAT pool) ----
+# CLAUDE_ORCH_DAILY_CAP=4         # orchestrator wakes per day (risky profile multiplies by 1.6)
+# CLAUDE_DAILY_CAP=1              # Opus retries per day (risky profile adds 1)
+# GOAT_DAILY_RUN_CAP=30           # GOAT calls per day from this repo
+# MAX_PARALLEL=1
+
+# ---- Model swaps (after stats.sh shows a better choice for this repo) ----
+# M_DS="$GO/mimo-v2.6-pro"        # e.g. try MiMo Pro as worker A

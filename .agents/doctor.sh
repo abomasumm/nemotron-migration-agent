@@ -28,6 +28,16 @@ if [ "$ORCHESTRATOR" = claude ]; then
     warn "cron runs runner.sh but not orchestrate.sh tick (see setup.sh output)"
 fi
 
+echo "Kit"
+if [ -f "$AG/KIT_VERSION" ]; then
+  read -r kv kp <"$AG/KIT_VERSION"
+  kh=$(git -C "${kp:-/nonexistent}" rev-parse --short HEAD 2>/dev/null)
+  if [ -z "$kh" ]; then warn "kit $kv; kit repo not found at ${kp:-?} (can't check for updates)"
+  elif [ "${kv%-dirty}" = "$kh" ]; then ok "kit $kv (current)"
+  else warn "kit $kv; the kit is now at $kh. Update: bash $kp/setup.sh --update $ROOT"; fi
+else warn "no .agents/KIT_VERSION (installed before setup.sh --update existed). Run: bash <kit>/setup.sh --update $ROOT"; fi
+[ -f "$AG/local.sh" ] && ok "local.sh (this repo's settings)" || warn "no .agents/local.sh: repo settings would be lost on update (setup.sh --update creates it)"
+
 echo "Repo"
 ok "profile: $PROFILE (parallel $MAX_PARALLEL, best-of-2: ${BEST_OF_2:-risky only}, judge: $USE_JUDGE)"
 git -C "$ROOT" show-ref --verify --quiet "refs/heads/$MAIN_BRANCH" && ok "main branch: $MAIN_BRANCH" || bad "MAIN_BRANCH=$MAIN_BRANCH does not exist (edit routing.sh)"

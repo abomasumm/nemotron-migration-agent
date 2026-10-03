@@ -1,10 +1,14 @@
 # shellcheck shell=bash disable=SC2034
-# routing.sh: every model and routing decision lives here. Edit freely.
+# routing.sh: every model and routing decision lives here. It belongs to the kit: setup.sh --update
+# replaces it. Put this repo's own settings in .agents/local.sh, which is loaded below and never replaced.
 # Claude (orchestrator and last retry) runs only through the official claude CLI on your Pro login.
 # Every other model goes omp (or Pi) -> 9router -> OpenCode Go / Command Code GOAT.
 # Model strings are "<pi provider>/<model id as 9router exposes it>". Check with:
 #   pi --list-models 9router
 # then fix ROUTER, GO and GOAT below (and any model id marked VERIFY).
+
+# Per-run overrides from the environment (PROFILE=fast .agents/runner.sh run) beat local.sh.
+_ENV_PROFILE=${PROFILE:-}; _ENV_HARNESS=${HARNESS:-}; _ENV_ORCHESTRATOR=${ORCHESTRATOR:-}
 
 # ---- Harness: omp (Oh My Pi) or pi ----
 HARNESS=${HARNESS:-omp}                # omp or pi; override per run with HARNESS=pi
@@ -171,12 +175,23 @@ T2_ON_LONG=yes                      # senior review on every long task
 PAUSE_MINUTES=30                    # wait when every model for a role is full
 LOOP_SLEEP=300                      # loop.sh polling interval, seconds
 
-# ---- Profile overrides (applied on top of the values above) ----
+# ---- This repo's own settings ----
+# .agents/local.sh belongs to the repo: PROFILE, ALLOW_TRAINING, MAIN_BRANCH, caps, model swaps. Anything
+# set above can be set there. setup.sh --update never touches it. See local.sh.example.
+# shellcheck source=/dev/null
+[ -f "$(dirname "${BASH_SOURCE[0]}")/local.sh" ] && . "$(dirname "${BASH_SOURCE[0]}")/local.sh"
+PROFILE=${_ENV_PROFILE:-$PROFILE}; HARNESS=${_ENV_HARNESS:-$HARNESS}; ORCHESTRATOR=${_ENV_ORCHESTRATOR:-$ORCHESTRATOR}
+
+# ---- Profile overrides (applied on top of the values above, including local.sh) ----
+# Risky scales this repo's Claude caps rather than replacing them (10 wakes -> 16, 2 retries -> 3), so
+# lower caps set in local.sh for a multi-repo setup stay proportionally lower.
 case "$PROFILE" in
   default) ;;
-  risky) FORCE_RISK=high; TRIVIAL_LINES=0; MAX_PARALLEL=1; CLAUDE_DAILY_CAP=3; CLAUDE_ORCH_DAILY_CAP=16 ;;
+  risky) FORCE_RISK=high; TRIVIAL_LINES=0; MAX_PARALLEL=1
+         CLAUDE_DAILY_CAP=$(( CLAUDE_DAILY_CAP + 1 )); CLAUDE_ORCH_DAILY_CAP=$(( CLAUDE_ORCH_DAILY_CAP * 16 / 10 )) ;;
   fast)  BEST_OF_2=""; USE_JUDGE=no; OFFPEAK_ONLY=no; T2_ON_LONG=no; TRIVIAL_LINES=50
-         MAX_PARALLEL=3; PAUSE_MINUTES=10; LOOP_SLEEP=60; ORCH_MIN_GAP_MIN=10 ;;
+         MAX_PARALLEL=3; PAUSE_MINUTES=10; LOOP_SLEEP=60; ORCH_MIN_GAP_MIN=10
+         DS_EFFORT=high; M_DS="${M_DS%:*}:high" ;;
   *) echo "routing.sh: unknown PROFILE=$PROFILE (use default, risky or fast)" >&2; exit 1 ;;
 esac
 

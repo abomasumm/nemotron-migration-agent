@@ -22,6 +22,18 @@ ensure_integration() {
   [ -d "$INT_WT" ] || git -C "$ROOT" worktree add -q "$INT_WT" "$INTEGRATION_BRANCH"
 }
 
+# Main moved ahead and the integration branch has nothing main lacks (you merged it, or committed on main):
+# fast-forward it, so new tasks start from exactly what is on main. Never a real merge, never loses work.
+sync_integration() {
+  local a m; a=$(git -C "$ROOT" rev-parse "$INTEGRATION_BRANCH") m=$(git -C "$ROOT" rev-parse "$MAIN_BRANCH")
+  [ "$a" = "$m" ] && return 0
+  git -C "$ROOT" merge-base --is-ancestor "$a" "$m" || return 0
+  lock integration || return 0
+  git -C "$INT_WT" merge -q --ff-only "$MAIN_BRANCH" 2>/dev/null &&
+    echo "$(now) $INTEGRATION_BRANCH fast-forwarded to $MAIN_BRANCH ($(git -C "$ROOT" rev-parse --short "$m"))"
+  unlock integration
+}
+
 fresh_tree() { # name branch -> prints path; tree reset to integration head
   local p="$WT/$1"
   if [ -d "$p" ]; then
@@ -176,11 +188,13 @@ finish() { # id taskfile branch
 
 merge_branch() {
   local id=$1 f=$2 br=$3
+  lock integration || { fm_set "$f" status conflict; tlog "$f" "integration branch busy; re-queued"; return; }
   if git -C "$INT_WT" merge -q --no-ff "$br" -m "$id: $(fm_get "$f" title)" >/dev/null 2>&1; then
+    unlock integration
     fm_set "$f" status merged; tlog "$f" "merged into $INTEGRATION_BRANCH"
     drop_tree "$id-b" "task/$id-b"; drop_tree "$id-tests" "task/$id-tests"; drop_tree "$id" "task/$id"
   else
-    git -C "$INT_WT" merge --abort 2>/dev/null
+    git -C "$INT_WT" merge --abort 2>/dev/null; unlock integration
     fm_set "$f" status conflict; tlog "$f" "merge conflict; chief of staff will re-queue"
   fi
 }
@@ -281,6 +295,7 @@ cmd_run() {
   lock scheduler || exit 0
   trap 'unlock scheduler' EXIT
   ensure_integration
+  sync_integration
   local f st id running=0 busy="" m dep ok nb tp
   for f in $(task_files); do
     st=$(fm_get "$f" status)

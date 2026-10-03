@@ -21,6 +21,9 @@ orch_calls_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null
 
 cmd_goal() {
   [ -n "${1:-}" ] || { echo 'usage: orchestrate.sh goal "milestone goal" [default|risky|fast]'; exit 1; }
+  git -C "$ROOT" ls-files --error-unmatch "$AG/runner.sh" >/dev/null 2>&1 || {
+    echo "Commit the kit first, so the agents branch starts from it:"
+    echo "  git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m \"agent pipeline\""; exit 1; }
   [ "$ORCHESTRATOR" = claude ] || {
     echo "ORCHESTRATOR=$ORCHESTRATOR: nothing would plan this goal. Run /plan in Claude Code instead,"
     echo "or restart the loop with ORCHESTRATOR=claude."; exit 1; }
@@ -86,8 +89,8 @@ housekeeping() {
     [ -n "$(goal_tasks "$id")" ] || continue
     for f in $(goal_tasks "$id"); do st=$(fm_get "$f" status); case "$st" in merged|dropped) ;; *) open=1 ;; esac; done
     [ $open = 0 ] || continue
-    "$AG/runner.sh" batch >>"$OLOG" 2>&1
-    fm_set "$g" status wrapup; tlog "$g" "all tasks merged; batch review done"
+    local bo; bo=$("$AG/runner.sh" batch 2>&1); echo "$bo" >>"$OLOG"
+    fm_set "$g" status wrapup; tlog "$g" "all tasks merged; batch review: $(echo "$bo" | tail -n 1)"
   done
 }
 
@@ -125,8 +128,12 @@ cmd_brief() {
               else echo "(no context pack; read REPO_MAP.md)"; fi ;;
       wrapup) f="$GOALS/$id.md"; cat "$f"; echo; echo "### Tasks in this goal"
               for f in $(goal_tasks "$id"); do echo "- $(fm_get "$f" id) $(fm_get "$f" status) $(fm_get "$f" review): $(fm_get "$f" title)"; done
-              ls "$LOGS"/batch-*.json >/dev/null 2>&1 &&
-                { echo; echo "### Latest batch review"; json_block "$(ls -t "$LOGS"/batch-*.json | head -1)" | head -c 4000; } ;;
+              # The goal log says what the batch review did: "nothing to batch-review" (every task had its
+              # own review) or "verdict: X -> file". Show that file, not whatever batch ran last.
+              local bj; bj=$(grep -o 'batch review: verdict: .* -> .*\.json' "$GOALS/$id.md" | tail -1 | sed 's/.* -> //')
+              echo; echo "### Batch review"
+              if [ -n "$bj" ] && [ -s "$bj" ]; then json_block "$bj" | head -c 4000
+              else grep -o 'batch review: .*' "$GOALS/$id.md" | tail -1 || echo "(not recorded)"; fi ;;
       triage|signoff) "$AG/runner.sh" show "$id" | head -c 9000 ;;
     esac
   done <<<"$ev"

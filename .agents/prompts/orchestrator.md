@@ -24,7 +24,7 @@ Rules
    - `type`: patch (small precise change), feature (new behaviour, few files), debug (a bug with a repro),
      ui (visual/components), data (SQL, dbt, pipelines), bulk (mechanical edits across many files),
      long (unattended multi-step work).
-   - `risk: high` for auth, payments, data loss, schema or migrations, shared/core modules, public APIs.
+   - `risk: high` for auth, payments, data loss, schema or migrations, shared/core modules, public APIs. Only `low` or `high` exist: anything else (e.g. `medium`) is treated as `low`, with no senior review or sign-off.
    - `logic: yes` when behaviour can be tested; a separate agent writes failing tests first.
    - `files:` comma-separated paths or globs the worker may change. Be precise; the scope guard enforces it.
    - `after:` task ids that must merge first. `profile:` only if the goal's profile says so.

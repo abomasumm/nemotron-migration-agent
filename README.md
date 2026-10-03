@@ -6,58 +6,210 @@ those decisions is waiting, so it spends Pro quota on decisions, not on polling.
 and Command Code GOAT do the building and checking through Oh My Pi (omp) -> 9router. Plain Pi still works:
 set HARNESS=pi. Scripts do everything deterministic. Claude never goes through 9router.
 
-## One-time setup (per machine)
-1. Install: git, jq, curl, Node, Claude Code, Oh My Pi (`curl -fsSL https://omp.sh/install | sh`,
-   `brew install can1357/tap/omp`, or `bun install -g @oh-my-pi/pi-coding-agent`), 9router (`npm i -g 9router`).
-   macOS also: `brew install bash coreutils`. Recommended: gitleaks, semgrep, ripgrep.
-2. Claude Code: run `claude`, then `/login` with your Pro account. Make sure ANTHROPIC_API_KEY is not set.
-3. 9router: change the default password, bind to 127.0.0.1, require an API key, turn Cloud Sync off.
-   OpenCode Go uses the model prefix `ocg/` and Command Code GOAT uses `cmc/`.
-   Turn RTK on. Leave Caveman, Ponytail, Headroom and PXPipe off.
-   No fallback combos for these models: the kit handles fallbacks itself.
-   `export NINEROUTER_API_KEY=...` in your shell profile.
-4. omp: merge `.agents/omp-models.example.yml` into `~/.omp/agent/models.yml` (the 9router provider, with the
-   DeepSeek compat settings omp needs) and `.agents/omp-config.example.yml` into `~/.omp/agent/config.yml`
-   (points omp's own background model roles at 9router). Check: `omp models 9router`.
-   Using plain Pi instead? Set `HARNESS=pi` in routing.sh and use `.agents/pi-9router.example.json`.
+# How to run it
 
-## Per repo
+The workflow, start to finish. Steps A to C happen once; D repeats for every milestone.
+
 ```
-bash setup.sh /path/to/repo
-```
-Edit `.agents/routing.sh` (ROUTER/GO/GOAT names, MAIN_BRANCH, ALLOW_TRAINING),
-`.agents/gates/check.sh` (test/lint/build commands) and `AGENTS.md`. Then:
-```
-.agents/doctor.sh              # tools, harness, repo, 9router
-.agents/doctor.sh --models     # every model replies "ready"
-.agents/doctor.sh --claude     # claude -p works on your Pro login
-git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
-.agents/cos.sh map             # writes REPO_MAP.md; skim it
+A. Machine setup (once)  ->  B. Add a repo (once per repo)  ->  C. Control desk (once, optional)
+                                         |
+                                         v
+D. Each milestone:  brief -> queue -> loop builds -> you check -> merge + push -> (update kit) -> next brief
 ```
 
-## Running a milestone
-```
-tmux new -s agents 'caffeinate -is .agents/loop.sh'   # once: scheduler + orchestrator tick every LOOP_SLEEP (caffeinate keeps the Mac awake)
-.agents/orchestrate.sh goal "what to build"   # you: queue the goal
-    # tick: Muse packs context -> Claude wakes, writes .agents/tasks/T-NNN.md (goal: G-001), marks it planned
-    # runner: builds, tests, gates, reviews, merges into `agents`
-    # tick: Claude wakes for stuck tasks (re-brief, split, escalate or park) and risky sign-offs
-    # tick: all tasks merged -> batch review -> Claude wraps up and marks the goal done
-.agents/orchestrate.sh goals                  # progress by goal;  .agents/runner.sh status  by task
-git checkout main && git merge agents         # you: the only step Claude never does
-```
-Anything Claude hands back to you is `needs-you` in `runner.sh status`, with the question in the task's log
-and in `.agents/logs/orchestrator.log`.
+## A. Machine setup (once per Mac)
+1. **Install the tools.**
+   ```bash
+   brew install bash coreutils jq tmux gh node gitleaks semgrep ripgrep
+   ```
+   Plus Claude Code, Oh My Pi (`brew install can1357/tap/omp`), 9router (`npm i -g 9router`) and,
+   as a fallback harness, Pi. Put `/opt/homebrew/bin` first in your PATH (in `~/.zshrc`): `which bash`
+   must print `/opt/homebrew/bin/bash`, also inside tmux, and `gtimeout` must exist.
+2. **Claude Code.** Run `claude`, then `/login` with your Pro account. `ANTHROPIC_API_KEY` must not be set.
+3. **9router.** Change the default password, bind to 127.0.0.1, require an API key, turn Cloud Sync off.
+   Add OpenCode Go (`ocg/`) and Command Code GOAT (`cmc/`). RTK on; Caveman, Ponytail, Headroom, PXPipe off;
+   no fallback combos (the kit does fallbacks). Add `export NINEROUTER_API_KEY=...` to `~/.zshrc`.
+4. **omp.**
+   - Install the 9router plugin: `omp plugin install pi-9router-ext`. The kit loads it explicitly
+     (`OMP_EXTENSIONS` in routing.sh), because pipeline runs switch other extensions off.
+   - Merge `.agents/omp-models.example.yml` into `~/.omp/agent/models.yml`. It includes the
+     `9router-direct` provider, which visual QA needs: the plugin sends Gemini a token limit GOAT rejects.
+   - Merge `.agents/omp-config.example.yml` into `~/.omp/agent/config.yml`.
+   - Check: `omp models 9router` lists the `ocg/` and `cmc/` models.
+5. **Keep repos out of iCloud.** If "Desktop & Documents Folders" syncs to iCloud, keep repos elsewhere
+   (e.g. `~/code`): sync fights with git worktrees. Repo paths must not contain spaces.
 
-Driving it by hand instead: `claude` then `/orchestrate` runs one orchestrator pass with you watching;
-`/plan` and `/signoff` still work on their own.
+## B. Add a repo (once per repo)
+1. **Install the kit** from the kit folder, pointing at the repo:
+   ```bash
+   bash ~/path/to/agent-pipeline-kit/setup.sh ~/code/my-repo
+   cd ~/code/my-repo
+   ```
+2. **Tell the kit about the repo.**
+   - `.agents/local.sh`: this repo's settings (PROFILE, ALLOW_TRAINING, MAIN_BRANCH, caps). Set
+     `ALLOW_TRAINING=no` for any code that isn't yours. Leave `routing.sh` alone; it belongs to the kit.
+   - `.agents/gates/check.sh`: the test, lint, typecheck and build commands. It detects Node
+     (`package.json`) and Python (`pyproject.toml`) by itself; add anything else.
+   - `AGENTS.md`: one line on the project, its commands and conventions. Every agent reads it.
+3. **Check everything.** Fix every FAIL; warnings are informational.
+   ```bash
+   .agents/doctor.sh             # tools, kit version, repo, 9router, omp (free)
+   .agents/doctor.sh --models    # every model replies "ready" (a little Go/GOAT quota)
+   .agents/doctor.sh --claude    # claude -p works on your Pro login (a little Pro quota)
+   ```
+4. **Commit the kit before the first goal** (the `agents` branch starts from what's committed;
+   `orchestrate.sh goal` refuses until it is), then map the repo:
+   ```bash
+   git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
+   .agents/cos.sh map            # writes REPO_MAP.md; skim it
+   ```
+5. **Empty or untested repo?** The pipeline can only check work against tests, and `check.sh` passes
+   everything when there's nothing to run. Make the first goal a scaffold that names the stack and sets up
+   test, lint, typecheck and build commands, or set that up yourself in an interactive Claude Code session.
+   Legacy code without tests: first add tests that pin down current behaviour.
 
-Fallback mode (`ORCHESTRATOR=cos`, the v3 behaviour) is for when Pro quota is short or the `claude` CLI is
-broken: Muse triages stuck tasks once a day, and you run `/plan` and `/signoff` yourself. Switch by
-restarting the loop: `tmux new -s agents 'ORCHESTRATOR=cos caffeinate -is .agents/loop.sh'` (or edit
-routing.sh to make it permanent). In this mode `orchestrate.sh goal` refuses, because nothing would plan the
-goal, and the loop warns about goals left open from claude mode. Merge conflicts are still re-queued every pass.
-A middle ground is `ORCHESTRATOR=claude` with `ORCH_AUTO_SIGNOFF=no`: Claude plans and triages, you sign off.
+## C. Control desk with DeepSeek Harness (once, optional)
+dsh is where you draft briefs and check on pipelines in plain language. It acts only through `kitctl`,
+an allow-listed, logged wrapper. Everything it does, you can also do by hand (shown in D).
+1. Copy the control desk outside your repos and list your repos:
+   ```bash
+   cp -R ~/path/to/agent-pipeline-kit/ops ~/code/ops && cd ~/code/ops
+   cp repos.txt.example repos.txt     # edit: "<name> <path>" per repo
+   ./kitctl overview                  # every repo's goals, tasks, usage and loop health
+   ```
+2. In dsh (`tmux new -s dsh 'npx @deepseek-ai/dsh web --no-open'`, then http://127.0.0.1:3080):
+   9router as a custom provider (`http://127.0.0.1:20128/v1`, `openai-completions`, DeepSeek V4.1 Flash on
+   `cmc/`); `~/code/ops` as a **workspace-write** workspace (dsh reads `ops/AGENTS.md`, its rules); each repo
+   as a **read-only** workspace. Never full access.
+3. Run the trust test in `ops/README.md` before relying on it, and optionally add the morning-summary and
+   weekly routing-report scheduled tasks.
+
+## D. Each milestone
+One goal per repo at a time. A goal is one milestone: typically 3 to 6 tasks and a few hours of runtime.
+
+**1. Write the brief.** Use `ops/templates/goal-brief.md`: a one-line summary, the outcome, 3 to 6
+testable acceptance bullets naming real functions, routes and files, the scope (test files too), low or
+high risk, and constraints. In dsh: "draft a brief for <repo>: <idea>", then switch the chat to Sol or
+Kimi and ask what's missing or untestable. Sharper briefs mean fewer retries and fewer Claude wakes.
+
+**2. Queue it.** Pick the profile: `risky` for auth, payments, schema or migrations.
+```bash
+.agents/orchestrate.sh goal "$(cat brief.md)" [risky]        # by hand, in the repo
+./kitctl my-repo goal --file briefs/my-repo-x.md [risky]     # or tell dsh "queue it"
+```
+
+**3. Make sure the loop is running.** It runs the scheduler and the orchestrator every 5 minutes.
+```bash
+tmux new -s agents 'caffeinate -is .agents/loop.sh'          # in the repo; Ctrl+b then d to detach
+tmux ls                                                      # "agents" must be listed
+```
+Within a few minutes Muse packs context, Claude is woken to plan, and task files appear.
+
+**4. Watch it (optional).**
+```bash
+.agents/orchestrate.sh goals      # packed -> planned -> wrapup -> done
+.agents/runner.sh status          # each task: queued -> building -> gating -> reviewing -> merged
+tail -f .agents/logs/runs.csv     # every model call as it happens
+~/code/ops/kitctl overview        # all repos at once, with today's usage against the caps
+```
+Claude is woken on its own for stuck tasks (re-brief, split, escalate or park) and for sign-off on
+high-risk tasks. You don't need to do anything unless a task lands in `needs-you`.
+
+**5. Handle `needs-you` tasks.** `.agents/runner.sh show T-012` explains what went wrong. Then either
+`.agents/runner.sh requeue T-012 "hint"`, or leave it parked and fix it yourself. dsh can explain the
+digest and propose the hint; `kitctl` lets it requeue or park only tasks in `needs-you`.
+
+**6. Check, merge, push** once the goal shows `done`. Claude never merges into main or pushes; you do.
+```bash
+git log --oneline main..agents                               # what the pipeline committed
+git checkout agents && npm ci && npm test && npm run build && git checkout main   # optional: run it yourself
+git status --short                                           # commit your own changes first, if any
+git merge agents && git push
+```
+The next runner pass fast-forwards `agents` to `main` by itself, so new tasks start from what you merged.
+If `git merge` reports a conflict, stop and look before resolving it.
+
+**7. Between milestones.**
+- Skim `NOTES.md`: Claude adds one-line lessons there (e.g. "list test files in scope").
+- Fold lessons into your brief template.
+- Pick up kit fixes, then restart the loop (see "Updating the kit in a repo" below):
+  ```bash
+  bash ~/path/to/agent-pipeline-kit/setup.sh --update .
+  ```
+
+## E. Habits
+- **Daily:** `kitctl overview` (or dsh's morning digest): anything in `needs-you`, stopped loops, pool pauses.
+- **Weekly:** read `ops/kitctl.log` (everything done through kitctl); check the Go and GOAT consoles.
+- **After two weeks:** `.agents/stats.sh 14`, then tune models and caps in `local.sh`. Raise `MAX_PARALLEL`
+  to 2 or 3 after about 20 clean tasks.
+- **Several repos:** give each its own loop and lower caps in each `local.sh` so they share one Pro plan
+  and one GOAT pool (see "One repo or several").
+
+## F. Stopping, pausing and fallback
+| To | Do |
+|---|---|
+| Stop the loop | `tmux kill-session -t agents` (running tasks stop; queued tasks wait) |
+| Restart it | `tmux new -s agents 'caffeinate -is .agents/loop.sh'` in the repo |
+| See why it exited | run `caffeinate -is .agents/loop.sh` without tmux and read the error |
+| Run without Claude orchestrating | `tmux new -s agents 'ORCHESTRATOR=cos caffeinate -is .agents/loop.sh'` (see below) |
+| Steer a pass yourself | `claude`, then `/orchestrate`; or `/plan` and `/signoff` |
+
+## G. When something looks wrong
+| Symptom | Likely cause and fix |
+|---|---|
+| `[exited]` right after starting tmux | The loop failed at once. Run it without tmux to see why (often tmux using macOS's old bash: fix PATH, `tmux kill-server`). |
+| Every model "not found" in `.out.err` | The 9router plugin isn't loaded: check `OMP_EXTENSIONS` in routing.sh and `doctor.sh`. |
+| Goal stays `packed`, log says "events unchanged" | Claude already saw this exact event and left it. Read its reply at the bottom of `.agents/logs/orchestrator.log`. |
+| Goal sits at `new` or `packed` and nothing runs | The loop isn't running (`tmux ls`). |
+| Task in `needs-you` | `runner.sh show T-NNN`; requeue with a hint, or fix by hand. |
+| Task in `needs-claude` | Opus retry cap reached for today; it resumes tomorrow. |
+| Tasks paused (`not_before` set) | A pool was full; see `.agents/logs/fallbacks.log`. They resume on their own. |
+| `doctor.sh --models` FAIL | Wrong model id, or the model rejects a setting; the error text says which. |
+| `git merge agents` conflict | Usually files changed on both sides (e.g. `.gitignore`). Look at both versions before choosing. |
+
+# Reference
+
+## Updating the kit in a repo
+```
+bash ~/path/to/agent-pipeline-kit/setup.sh --update /path/to/repo
+```
+It replaces the kit's own files (scripts, prompts, `routing.sh`, slash commands) with the kit's current
+version and records it in `.agents/KIT_VERSION`; `doctor.sh` warns when a repo is behind. A kit file you
+had edited in the repo is backed up to `.agents/.kit-backup/<time>/` first, and the output names it so you
+can move the setting into `local.sh`. Never touched: `.agents/local.sh`, `.agents/gates/check.sh`,
+`AGENTS.md`, `NOTES.md`, tasks and goals. Run it between milestones, commit, and restart the loop.
+
+| File | Owned by | On `--update` |
+|---|---|---|
+| `.agents/*.sh`, `prompts/`, `routing.sh`, `.claude/commands/` | kit | replaced (edits backed up) |
+| `.agents/local.sh` | repo | never touched |
+| `.agents/gates/check.sh`, `AGENTS.md`, `NOTES.md` | repo | never touched |
+
+Settings resolve in this order, last wins: `routing.sh` defaults, then `local.sh`, then a per-run
+environment override (`PROFILE=fast .agents/runner.sh run`), then the profile's adjustments. The risky
+profile scales Claude caps rather than replacing them, so a lowered cap in `local.sh` stays lower.
+
+## What happens inside a milestone
+```
+orchestrate.sh goal       -> goal G-NNN is new
+tick: Muse packs context  -> packed; Claude wakes, writes .agents/tasks/T-NNN.md, marks it planned
+runner: per task          -> tests first (must fail on the old code), two workers, gates, judge,
+                             first review (other family), senior review if risky -> merged into `agents`
+tick: stuck task          -> Claude re-briefs, splits, escalates or parks it for you
+tick: high-risk task      -> Claude reads the diff and approves or rejects
+tick: all tasks merged    -> batch review of small tasks -> Claude (Sonnet) wraps up -> done
+you                       -> merge `agents` into main, push
+```
+Anything Claude hands back to you is `needs-you` in `runner.sh status`, with the question in the task's
+log and in `.agents/logs/orchestrator.log`.
+
+## Fallback mode
+`ORCHESTRATOR=cos` (the v3 behaviour) is for when Pro quota is short or the `claude` CLI is broken: Muse
+triages stuck tasks once a day, and you run `/plan` and `/signoff` yourself. Switch by restarting the loop
+with `ORCHESTRATOR=cos` (or set it in `local.sh`). In this mode `orchestrate.sh goal` refuses, because
+nothing would plan the goal, and the loop warns about goals left open from claude mode. Merge conflicts are
+still re-queued every pass. A middle ground is `ORCHESTRATOR=claude` with `ORCH_AUTO_SIGNOFF=no`: Claude
+plans and triages, you sign off.
 
 ## One repo or several
 It's one system. Every repo runs this kit unchanged, with its own loop, task queue and Claude orchestrator.
@@ -66,16 +218,23 @@ Going from one repo to several adds a layer above the repos. Nothing inside a re
 | | One repo | Several repos |
 |---|---|---|
 | Kit in each repo | as above | as above, installed in each |
-| `~/code/ops/repos.txt` | one line | one line per repo |
-| Who queues goals | you (or DeepSeek Harness through `kitctl`, on your say) | DeepSeek Harness's scheduled check, from `~/code/ops/backlog.md` |
+| `ops/repos.txt` | one line | one line per repo |
+| Who queues goals | you (or dsh through `kitctl`, on your say) | dsh's scheduled check, from `ops/backlog.md` (not built yet) |
 | Per-repo caps | routing.sh defaults | lowered per repo in `.agents/local.sh` so all repos fit one Pro plan, one Go pool and one GOAT pool |
 
-Start with one repo. Add the portfolio layer once a second repo has run a few goals cleanly. `kitctl`, the
-backlog, the scheduled check and `local.sh` are designed but not built yet.
+Start with one repo. Add the portfolio layer once a second repo has run a few goals cleanly. `local.sh`
+and `kitctl` exist; the cross-repo backlog and its scheduled check are designed but not built yet.
 
 `docs/architecture.html` describes the whole system. A switch at the top changes the view between
 **One repo** and **Several repos**. Open it with `#multi` at the end of the URL to start on the
 several-repos view.
+
+## Control desk (`ops/`)
+`kitctl` is the only way dsh touches a pipeline: status, goals, usage and logs any time; queue a goal, or
+requeue or park a `needs-you` task, when you say so; never approve, reject, escalate, drop, git or file
+edits. Every call is logged to `kitctl.log`. dsh's rules are in `ops/AGENTS.md`, which dsh reads
+automatically. Also there: `repos.txt`, the goal-brief template, and the morning-summary and weekly
+routing-report prompts. Setup and the trust test are in `ops/README.md`.
 
 ## How the orchestrator spends Pro quota
 | Setting (routing.sh) | Default | What it does |
@@ -94,7 +253,7 @@ model `ORCH_OPUS` or `ORCH_SONNET`), its prompt is `.agents/orch/wake.prompt`, a
 `.agents/orch/wake-*.out` and `.agents/logs/orchestrator.log`.
 
 ## Profiles
-Set the repo's usual profile with `PROFILE=` near the top of `.agents/routing.sh`. Override it for one run with
+Set the repo's usual profile with `PROFILE=` in `.agents/local.sh`. Override it for one run with
 `PROFILE=fast .agents/runner.sh run`, or for one task with `profile: risky` in the task's frontmatter.
 
 | Profile | Use it for | What changes |
@@ -128,7 +287,7 @@ Goal statuses: `new -> packed -> planned -> wrapup -> done`.
 | `cos.sh pack "goal"` / `map` / `status` / `triage` / `daily` | Cheap-model helper jobs: context pack, repo map, status note. |
 | `cos.sh conflicts` | Re-queue merge-conflicted tasks on the new base (no model; runs every loop pass). |
 | `doctor.sh [--models] [--claude]` | Health checks. |
-| `stats.sh [days]` | Per-model calls, errors, speed, gate pass rate and best-of-2 wins in this repo. Use it to tune routing.sh. |
+| `stats.sh [days]` | Per-model calls, errors, speed, gate pass rate and best-of-2 wins in this repo. Use it to tune `local.sh`. |
 | `loop.sh` | Scheduler and orchestrator tick in a tmux window (recommended over cron). |
 
 ## Where to look when something breaks
@@ -141,7 +300,7 @@ Goal statuses: `new -> packed -> planned -> wrapup -> done`.
 - 9router dashboard: raw requests, RTK savings, provider errors
 
 ## How the kit drives omp
-Each call is `omp -p --no-session --no-extensions --no-skills --no-rules --model <9router model> --thinking <level> --tools <set>`,
+Each call is `omp -p --no-session --no-extensions -e <9router plugin> --no-skills --no-rules --model <9router model> --thinking <level> --tools <set>`,
 with the prompt on stdin. Workers get `OMP_WORKER_TOOLS` (read, edit, write, bash, grep, glob by default: add omp's LSP/AST
 tools there if you want workers to use them), read-only jobs get `OMP_READ_TOOLS`, reviewers get `--no-tools`.
 Pinning the tools keeps omp's subagent/task tools from starting extra model calls. The repo map and context pack run
@@ -151,7 +310,7 @@ in a throwaway checkout (`.worktrees/_readonly`), so they can't touch your worki
 - Claude only runs through the official `claude` CLI, with ANTHROPIC_API_KEY removed from its environment.
 - The orchestrator can't write code, commit, merge into main or push: its headless tool list only allows task
   files, NOTES.md, kit commands and read-only git. Only you merge `agents` into main.
-- Models that train on your prompts (Muse Contributor) only run when `ALLOW_TRAINING=yes` in routing.sh.
+- Models that train on your prompts (Muse Contributor) only run when `ALLOW_TRAINING=yes` (set it per repo in `local.sh`).
 - Workers can only change files listed in the brief; `.agents/`, `.claude/` and `CLAUDE.md` are always off limits.
 - Claude retries (Opus by default) and orchestrator wakes have separate daily caps; GOAT calls are capped per day.
 - Go and GOAT each meter one shared pool. When a call hits a capacity error (RATE_LIMIT_PATTERN), it walks
