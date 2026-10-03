@@ -111,7 +111,7 @@ cmd_brief() {
   echo "# Orchestrator brief $(now)"
   echo "Integration branch: $INTEGRATION_BRANCH. Main branch: $MAIN_BRANCH (never merge into it)."
   echo "Profile: $PROFILE. Orchestrator wakes today: $(orch_calls_today)/$CLAUDE_ORCH_DAILY_CAP."
-  echo "Claude retries today: $(count_today "$CLAUDE_ESC")/$CLAUDE_DAILY_CAP. GOAT calls today: $(count_today "$GOAT/")/$GOAT_DAILY_RUN_CAP."
+  echo "Claude retries today: $(count_today "$CLAUDE_ESC")/$CLAUDE_DAILY_CAP. GOAT calls today: $(goat_today)/$GOAT_DAILY_RUN_CAP."
   echo; echo "## Events to resolve"
   [ -n "$ev" ] && echo "$ev" | sed 's/^/- /' || echo "- none"
   echo; echo "## All tasks"; echo '```'; "$AG/runner.sh" status; echo '```'

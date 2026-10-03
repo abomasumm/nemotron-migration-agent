@@ -25,6 +25,9 @@ ROUTER=9router                          # the provider name you gave 9router ins
 ROUTER_URL=http://127.0.0.1:20128/v1    # 9router's OpenAI-compatible endpoint (doctor.sh checks it)
 GO="$ROUTER/ocg"                        # 9router prefix for OpenCode Go models   (VERIFY)
 GOAT="$ROUTER/cmc"                      # 9router prefix for Command Code models  (VERIFY)
+# The same GOAT pool through the "9router-direct" provider defined in ~/.omp/agent/models.yml (not the
+# plugin), for models whose output limit the plugin gets wrong. Counted against the GOAT cap like $GOAT.
+GOAT_DIRECT="$ROUTER-direct/cmc"
 # GO and GOAT must differ: the kit uses the prefix to count GOAT calls and to overflow between plans.
 # Error text that means "this model or pool can't take the call right now, try the next in its chain".
 # Add 9router's wording if it differs. Timeouts are NOT in here: a slow model is a task failure, not capacity.
@@ -81,7 +84,7 @@ M_VIS="$M_GLMF"
 # ---- GOAT: separate pool, used for the expensive specialists ----
 M_SOL="$GOAT/gpt-5.6-sol:xhigh"     # judge, T2 reviewer, second escalation (VERIFY id)
 M_KIMI="$GOAT/kimi-k3"              # UI escalation (42.8 web index; 980/month on GOAT) (VERIFY id)
-M_GEM="$GOAT/gemini-3.8-flash"      # visual QA (VERIFY id)
+M_GEM="$GOAT_DIRECT/google/gemini-3.8-flash"  # visual QA. Direct: the plugin sends 131072 max tokens, GOAT Gemini allows 65536
 
 # ---- Claude (Pro login, official CLI only) ----
 # Last rung. Opus, not Sonnet: Sonnet 5 scores below DeepSeek and Muse on coding, so it rarely
@@ -117,7 +120,7 @@ ORCH_DISALLOWED_TOOLS="Bash(git push:*),Bash(git merge:*),Bash(git checkout:*),B
 
 # ---- Free models inside 9router (considered for every role) ----
 # OpenCode Free: no auth, model list changes without notice, treat as training/logging. Last resort only.
-M_OC_FREE="$ROUTER/oc/auto"
+M_OC_FREE=""                           # OpenCode Free: add the oc/ provider in 9router, then set "$ROUTER/oc/auto"
 # Go's own free models: don't draw the pool, unknown quality, anonymous. Bulk-only safety net.
 M_BUNNY="$GO/space-bunny-free"
 # Considered and NOT used: Vertex AI credits (left out at your request), Kiro (50 credits/month, OAuth through a proxy risks the account, older models),

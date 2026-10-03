@@ -99,3 +99,25 @@ providers:
         input: [text, image]
   # Optional: OpenCode Free through 9router (last-resort fallback for status notes and repo maps).
   # Model ids come and go; the kit uses oc/auto.
+
+  # Required for visual QA: Gemini 3.8 Flash on GOAT through a provider defined here instead of by the
+  # pi-9router-ext plugin. The plugin sends max_tokens 131072 to every cmc/ model and GOAT's Gemini
+  # rejects anything over 65536. routing.sh calls it as GOAT_DIRECT ("9router-direct/cmc").
+  9router-direct:
+    baseUrl: http://127.0.0.1:20128/v1
+    api: openai-completions
+    apiKey: NINEROUTER_API_KEY
+    authHeader: true
+    models:
+      - id: cmc/google/gemini-3.8-flash
+        name: Gemini 3.8 Flash (GOAT, direct)
+        reasoning: true
+        thinking: { mode: effort, minLevel: low, maxLevel: high }
+        input: [text, image]
+        contextWindow: 1000000
+        maxTokens: 65536
+        compat:
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
+          reasoningEffortMap: { minimal: low }
+          requiresToolResultName: true

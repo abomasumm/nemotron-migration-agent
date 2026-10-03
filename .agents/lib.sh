@@ -35,8 +35,10 @@ unlock() { rmdir "$AG/locks/$1" 2>/dev/null; }
 # Counts real model calls today (outcome rows like gate-pass or b2win are not calls).
 count_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null | grep -vE ',(gate-|b2)[a-z]*,' | grep -c ",$1"); echo "${n:-0}"; }
 logout() { logrun "$1" "$2" "$3" 0 0; }   # outcome row: logout <id> <gate-pass|gate-fail|b2win|b2loss> <model>
-goat_ok() { [ "$(count_today "$GOAT/")" -lt "$GOAT_DAILY_RUN_CAP" ]; }
-is_goat() { case "$1" in "$GOAT"/*) return 0;; *) return 1;; esac; }
+goat_today() { local n; n=$(count_today "$GOAT/")   # GOAT calls today, both providers
+  [ -n "${GOAT_DIRECT:-}" ] && n=$(( n + $(count_today "$GOAT_DIRECT/") )); echo "$n"; }
+goat_ok() { [ "$(goat_today)" -lt "$GOAT_DAILY_RUN_CAP" ]; }
+is_goat() { case "$1" in "$GOAT"/*|"${GOAT_DIRECT:-$GOAT}"/*) return 0;; *) return 1;; esac; }
 claude_ok() { [ "$(count_today "$CLAUDE_ESC")" -lt "$CLAUDE_DAILY_CAP" ]; }
 
 logrun() { # id role model rc seconds
