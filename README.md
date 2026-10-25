@@ -1,4 +1,4 @@
-# Agent pipeline kit: Claude-orchestrated, Architecture B through 9router, on Oh My Pi (no Paperclip)
+# Agent pipeline kit: Claude-orchestrated, Architecture B through 9router, on Oh My Pi (no Paperclip) (I WILL CHANGE THIS IN A MOMENT)
 
 Claude is the orchestrator. Opus 5.5 (Claude Code, Pro login) plans milestones, triages tasks the pipeline
 couldn't finish, signs off risky work and closes milestones. It is woken by `orchestrate.sh` only when one of
