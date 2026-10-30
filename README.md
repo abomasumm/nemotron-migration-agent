@@ -30,34 +30,59 @@ them. This agent is built around proof instead of trust:
 
 ## Quick start
 
-You need macOS or Linux with git, python3, jq, curl, `timeout` (macOS: `brew install coreutils`), Node for
-JavaScript projects, [pi](https://pi.dev), and a Nebius Token Factory API key. gitleaks and semgrep are
-optional (the security gate skips what isn't installed).
+**1. Install** (macOS, about 2 minutes)
 
 ```bash
-brew install coreutils jq gitleaks semgrep
-python3 app/server.py        # then open http://127.0.0.1:8780
+git clone https://github.com/abomasumm/nemotron-migration-agent && cd nemotron-migration-agent
+brew bundle                                             # git, python, node, jq, coreutils, gitleaks, semgrep, gh
+npm install -g @earendil-works/pi-coding-agent@1.0.4    # pi: runs the models
 ```
 
-1. **Add a repo:** paste a GitHub URL (cloned into `~/nemotron-migrations`) or the path of a local git repo.
-   The agent is installed and committed in it.
-2. **Questions:** the agent analyses the repo (stack, commands, modules, test coverage, import order),
-   checks the tests pass today, and shows the 10 migration questions pre-filled with suggestions. Answer
-   them, then review and edit the generated `MIGRATION.md`.
-3. **Providers:** connect any OpenAI-compatible API (Nebius Token Factory first). Keys stay on your machine
-   in the project's git-ignored `.agents/secrets.sh`. Pick which of the provider's models to use, with
-   their intelligence scores and prices shown.
-4. **Models:** pick a model for each fixed role (orchestrator, judge and reviewer, worker A and B, test
-   writer, helper, last retry). The app enforces the rule that keeps results honest: the reviewer is a
-   family no worker uses, and the two workers are different families. "Test all models" checks each one.
-5. **Start:** a checklist (plan written, key set, families separated, baseline green), a profile, and one
-   button: it commits the plan, queues the goal and starts the loop.
-6. **Dashboard:** modules pinned and migrated, the task board with gate history, verdicts, model calls and
-   diffs, the orchestrator's decisions, and actions: approve or reject a sign-off, requeue with a hint,
-   park, drop, pause or resume the loop, and **Open pull request** (pushes the result as a new branch and
-   opens a PR with the `gh` CLI; needs a GitHub remote and `gh auth login`). The migrated code is always on
-   the repo's `agents` branch, so without GitHub you can review it with `git switch agents` and merge it
-   yourself.
+<details><summary>Linux</summary>
+
+```bash
+sudo apt install -y git python3 nodejs npm jq curl coreutils
+npm install -g @earendil-works/pi-coding-agent@1.0.4
+pipx install semgrep   # optional; gitleaks: https://github.com/gitleaks/gitleaks/releases
+```
+</details>
+
+**2. Get an API key** from [Nebius Token Factory](https://tokenfactory.nebius.com). You'll paste it into the app.
+
+**3. Start the app**
+
+```bash
+python3 app/server.py     # open http://127.0.0.1:8780
+```
+
+It checks your tools on start and shows the install command for anything missing.
+
+**4. Migrate**
+
+1. **Add a repo:** a GitHub URL or a local git repo. Its tests must pass today.
+2. **Providers:** paste your Token Factory key into the `tokenfactory` provider and choose its models
+   (scores and prices are shown).
+3. **Questions:** the agent analyses the repo (stack, commands, modules, test coverage, import order) and
+   shows 10 migration questions with suggested answers. Answer them, then review `MIGRATION.md`.
+4. **Models:** keep the defaults or pick a model per role. The app enforces cross-family review: the reviewer
+   is a family no worker uses, and the two workers differ.
+5. **Start**, then watch the **Dashboard**: modules pinned and migrated, tasks, gate results, verdicts,
+   diffs, and buttons to approve, reject, requeue with a hint, or pause.
+6. **Get the result:** *Open pull request* (needs a GitHub remote and `gh auth login`), or `git switch agents`
+   in your repo and merge it yourself.
+
+**Try it on the demo first:** copy [`examples/legacy-bookstore-api`](examples/legacy-bookstore-api) somewhere,
+`git init` it and commit, then add that folder in the app. [See the result](#see-the-result) for what you
+should end up with.
+
+### If something goes wrong
+
+| Problem | Fix |
+| --- | --- |
+| "baseline tests fail" | Fix the repo's tests first: the migration is proven against them |
+| No suggested answers in Questions | Add your key in Providers, then "Analyse again" |
+| "Open pull request" says no GitHub remote | `git remote add origin <url> && git push -u origin main`, or merge `agents` yourself |
+| CommonJS project warning | Add `NODE_OPTIONS='--import tsx'` to the test script (the warning explains why) |
 
 The app listens on 127.0.0.1 only, and every API call needs a random token embedded in the page, so other
 sites open in your browser can't drive it. It is a thin layer over the scripts in `.agents/`: everything it
@@ -323,6 +348,7 @@ local web app that takes a repo from URL to pull request.
 ## Repo layout
 
 ```
+Brewfile                 macOS dependencies: brew bundle
 setup.sh                 install or update the agent in a target repo
 app/                     local web app: server.py (standard library only) and index.html
 .agents/

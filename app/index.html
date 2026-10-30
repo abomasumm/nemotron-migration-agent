@@ -143,7 +143,7 @@ let timer = null;
 function route() {
   clearTimeout(timer);
   const [_, a, pid, step] = location.hash.split("/");
-  if (a === "p" && pid) return projectPage(pid, step || "questions");
+  if (a === "p" && pid) return projectPage(pid, step || "providers");
   return home();
 }
 window.addEventListener("hashchange", route);
@@ -152,8 +152,12 @@ const header = (extra = "") => `<div class="top"><a class="brand" href="#/">Migr
 
 // ---------- home ----------
 async function home() {
-  const projects = await api("projects").catch(() => []);
-  $("app").innerHTML = header() + `
+  const [projects, health] = await Promise.all([api("projects").catch(() => []), api("health").catch(() => ({ missing: [] }))]);
+  const req = health.missing.filter((t) => t.required), opt = health.missing.filter((t) => !t.required);
+  $("app").innerHTML = header() + (req.length || opt.length ? `<div class="card note ${req.length ? "bad" : ""}">
+      ${req.length ? `<b>Install these before you start:</b>` : `<b>Optional tools not installed:</b>`}
+      <table style="margin-top:6px">${[...req, ...opt].map((t) => `<tr><td class="mono">${esc(t.tool)}</td><td>${t.required ? "required" : "optional"}: ${esc(t.for)}</td><td class="mono">${esc(t.install)}</td></tr>`).join("")}</table>
+      <p class="muted" style="margin:8px 0 0">Then restart the app.</p></div>` : "") + `
     <div class="card">
       <h1>Migrate a codebase without breaking it</h1>
       <p class="sub">Point the agent at a repo. It pins today's behaviour with tests, plans the migration in safe steps, has open models make the edits, and nothing merges until the tests stay green and NVIDIA Nemotron has reviewed the change. You merge the result.</p>
@@ -162,13 +166,13 @@ async function home() {
       <p class="muted" style="margin-top:8px">A GitHub URL is cloned into the workspace. A local path is used in place: the agent's files are committed to that repo.</p>
       <pre class="log mono" id="log" hidden></pre>
     </div>
-    <div class="card"><h2>Projects</h2>${projects.length ? `<table><tr><th>Name</th><th>Path</th><th>Loop</th><th></th></tr>${projects.map((p) => `<tr><td><a href="#/p/${p.id}/questions">${esc(p.name)}</a></td><td class="mono muted">${esc(p.path)}</td><td>${p.loop ? '<span class="badge s-work"><span class="dot"></span>running</span>' : '<span class="muted">stopped</span>'}</td><td><a href="#/p/${p.id}/dashboard">Dashboard</a></td></tr>`).join("")}</table>` : '<div class="empty">No projects yet.</div>'}</div>`;
+    <div class="card"><h2>Projects</h2>${projects.length ? `<table><tr><th>Name</th><th>Path</th><th>Loop</th><th></th></tr>${projects.map((p) => `<tr><td><a href="#/p/${p.id}/providers">${esc(p.name)}</a></td><td class="mono muted">${esc(p.path)}</td><td>${p.loop ? '<span class="badge s-work"><span class="dot"></span>running</span>' : '<span class="muted">stopped</span>'}</td><td><a href="#/p/${p.id}/dashboard">Dashboard</a></td></tr>`).join("")}</table>` : '<div class="empty">No projects yet.</div>'}</div>`;
   $("add").onclick = async () => {
     const log = $("log"); log.hidden = false; log.textContent = "Starting…"; $("add").disabled = true;
     try {
       const job = await api("projects", { source: $("src").value });
       const done = await waitJob(job, log);
-      if (done.status === "done") location.hash = `#/p/${done.result.id}/questions`;
+      if (done.status === "done") location.hash = `#/p/${done.result.id}/providers`;
       else toast("Could not add the repo; see the log");
     } catch (e) { toast(e.message); }
     $("add").disabled = false;
@@ -176,22 +180,22 @@ async function home() {
 }
 
 // ---------- project ----------
-const STEPS = [["questions", "Questions"], ["providers", "Providers"], ["models", "Models"], ["start", "Start"], ["dashboard", "Dashboard"]];
+const STEPS = [["providers", "Providers"], ["questions", "Questions"], ["models", "Models"], ["start", "Start"], ["dashboard", "Dashboard"]];
 async function projectPage(pid, step) {
   let p;
   try { p = await api("projects/" + pid); } catch (e) { $("app").innerHTML = header() + `<div class="card note bad">${esc(e.message)}</div>`; return; }
-  const done = { questions: !!p.migration, start: p.started, dashboard: p.started };
+  const done = { providers: p.keyReady, questions: !!p.migration, start: p.started, dashboard: p.started };
   $("app").innerHTML = header(`<span class="sub" id="loopbadge">${loopBadge(p.loop)}</span>`) +
     `<h1>${esc(p.name)}</h1><div class="mono muted">${esc(p.path)}</div>
      <nav class="steps">${STEPS.map(([k, n], i) => `<a class="step ${k === step ? "on" : ""} ${done[k] ? "ok" : ""}" href="#/p/${pid}/${k}"><b>${done[k] ? "✓" : i + 1}</b>${n}</a>`).join("")}</nav>
      <div id="body"></div>`;
-  ({ questions: questionsStep, providers: providersStep, models: modelsStep, start: startStep, dashboard: dashboardStep }[step] || questionsStep)(p);
+  ({ questions: questionsStep, providers: providersStep, models: modelsStep, start: startStep, dashboard: dashboardStep }[step] || providersStep)(p);
 }
 
 async function questionsStep(p) {
   const b = $("body"), q = p.questions;
   if (!q) {
-    b.innerHTML = `<div class="card"><h2>1 · Analyse the repo</h2><p>The agent reads the repo (stack, commands, modules, which ones have tests, import order), runs the tests to check the starting point is green, and asks the helper model to suggest answers.</p><button class="primary" id="prep">Analyse repo</button><pre class="log mono" id="log" hidden style="margin-top:12px"></pre></div>`;
+    b.innerHTML = (p.keyReady ? "" : `<div class="note">No API key yet: the analysis still runs, but the suggested answers need a model. <a href="#/p/${p.id}/providers">Add your key in Providers</a> first.</div>`) + `<div class="card"><h2>1 · Analyse the repo</h2><p>The agent reads the repo (stack, commands, modules, which ones have tests, import order), runs the tests to check the starting point is green, and asks the helper model to suggest answers.</p><button class="primary" id="prep">Analyse repo</button><pre class="log mono" id="log" hidden style="margin-top:12px"></pre></div>`;
     $("prep").onclick = async () => { $("prep").disabled = true; $("log").hidden = false;
       try { const j = await waitJob(await api(`projects/${p.id}/prepare`, {}), $("log")); if (j.status === "done") route(); else toast("Analysis failed; see the log"); }
       catch (e) { toast(e.message); } $("prep").disabled = false; };
@@ -211,7 +215,7 @@ async function questionsStep(p) {
       <div class="row" style="margin-top:14px"><button class="primary" id="write">Write MIGRATION.md</button></div></div>
     <div class="card" id="migcard" ${p.migration ? "" : "hidden"}><h2>3 · Review MIGRATION.md</h2><p class="sub">The planner and every worker read this file. Fix anything wrong, then save.</p>
       <textarea id="mig" class="mono" style="min-height:420px">${esc(p.migration || "")}</textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="save">Save</button><a href="#/p/${p.id}/providers">Next: providers →</a></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="primary" id="save">Save</button><a href="#/p/${p.id}/models">Next: models →</a></div></div>`;
   $("reprep").onclick = async () => { $("reprep").disabled = true; toast("Analysing… (about a minute)"); try { await waitJob(await api(`projects/${p.id}/prepare`, {})); route(); } catch (e) { toast(e.message); } };
   $("write").onclick = async () => {
     const answers = Object.fromEntries(q.questions.map((x) => [x.key, $("q_" + x.key).value]));
@@ -228,7 +232,7 @@ async function providersStep(p) {
     <div class="card"><h2 id="ftitle">Add a provider</h2>
       <div class="qgrid"><div><label for="pn">Name</label><input id="pn" placeholder="tokenfactory"></div><div><label for="pu">Base URL</label><input id="pu" placeholder="https://api.tokenfactory.nebius.com/v1"></div>
       <div><label for="pk">Key variable</label><input id="pk" placeholder="NEBIUS_API_KEY"></div><div><label for="pv">API key (leave empty to keep the stored one)</label><input id="pv" type="password" autocomplete="off"></div></div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="psave">Save provider</button></div></div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="psave">Save provider</button>${provs.some((x) => x.keySet) ? `<a href="#/p/${p.id}/questions">Next: questions →</a>` : ""}</div></div>
     <div class="card" id="pickcard" hidden></div>`;
   document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { const x = provs.find((y) => y.name === b.dataset.edit); $("pn").value = x.name; $("pu").value = x.baseUrl; $("pk").value = x.keyEnv; $("ftitle").textContent = "Edit " + x.name; $("pn").scrollIntoView({ behavior: "smooth" }); }));
   document.querySelectorAll("[data-pick]").forEach((b) => (b.onclick = () => pickModels(p, provs.find((y) => y.name === b.dataset.pick))));

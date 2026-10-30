@@ -37,6 +37,27 @@ ROLE_VARS = {"orchestrator": "ORCH_MODEL", "reviewer": "M_NEMO", "worker_a": "M_
              "tester": "M_GLM", "helper": "M_HELPER", "last_retry": "ESC_MODEL"}
 LOCK = threading.Lock()
 JOBS = {}
+PI_INSTALL = "npm install -g @earendil-works/pi-coding-agent@1.0.4"
+# (tool, needed?, what it's for, how to install on macOS)
+TOOLS = [
+    ("git", True, "repos and branches", "brew bundle"),
+    ("jq", True, "reading JSON in the pipeline", "brew bundle"),
+    ("curl", True, "provider checks", "brew bundle"),
+    ("timeout|gtimeout", True, "time limits on model calls", "brew bundle  (coreutils)"),
+    ("pi", True, "runs the models", PI_INSTALL),
+    ("npm", False, "JavaScript projects", "brew bundle  (node)"),
+    ("gitleaks", False, "security gate: secrets", "brew bundle"),
+    ("semgrep", False, "security gate: risky code", "brew bundle"),
+    ("gh", False, "Open pull request", "brew bundle, then gh auth login"),
+]
+
+
+def missing_tools():
+    out = []
+    for names, required, purpose, install in TOOLS:
+        if not any(shutil.which(n) for n in names.split("|")):
+            out.append({"tool": names.split("|")[0], "required": required, "for": purpose, "install": install})
+    return out
 
 
 class ApiError(Exception):
@@ -259,6 +280,8 @@ def stop_loop(p):
 
 # ---------- API ----------
 def api(method, parts, body, query):
+    if parts == ["health"] and method == "GET":
+        return {"missing": missing_tools()}
     if parts == ["projects"] and method == "GET":
         return [{**x, "loop": bool(loop_pid(x))} for x in load_projects()]
     if parts == ["projects"] and method == "POST":
@@ -280,7 +303,10 @@ def api(method, parts, body, query):
         mig = os.path.join(p["path"], "MIGRATION.md")
         rc, remote = git(p, "remote", "get-url", "origin")
         goals = os.listdir(ag(p, "goals")) if os.path.isdir(ag(p, "goals")) else []
-        return {**p, "loop": bool(loop_pid(p)),
+        env = {**os.environ, **secrets_env(p)}
+        key_ready = any(env.get((prov.get("apiKey") or "").lstrip("$")) and prov.get("models")
+                        for prov in models_json(p).get("providers", {}).values())
+        return {**p, "loop": bool(loop_pid(p)), "keyReady": key_ready,
                 "questions": json.load(open(q)) if os.path.exists(q) else None,
                 "migration": open(mig).read() if os.path.exists(mig) else None,
                 "started": any(g.startswith("G-") for g in goals),
@@ -476,5 +502,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.makedirs(WORKSPACE, exist_ok=True)
+    for t in missing_tools():
+        print("%s %-9s not found (%s). Install: %s" % ("MISSING " if t["required"] else "optional", t["tool"], t["for"], t["install"]))
     print("Nemotron Migration Agent at http://127.0.0.1:%d  (workspace: %s)" % (PORT, WORKSPACE))
     http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
