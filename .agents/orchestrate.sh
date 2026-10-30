@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# orchestrate.sh: Claude as the orchestrator, woken only when a decision is needed.
-#   orchestrate.sh goal "text" [profile]   queue a milestone goal (Claude plans it on the next tick)
-#   orchestrate.sh tick                    cheap checks; wakes Claude if events are waiting (loop.sh/cron)
+# orchestrate.sh: Nemotron Ultra as the orchestrator, woken only when a decision is needed.
+#   orchestrate.sh goal "text" [profile]   queue a milestone goal (the orchestrator plans it on the next tick)
+#   orchestrate.sh tick                    cheap checks; wakes the orchestrator if events are waiting (loop.sh)
 #   orchestrate.sh events                  list waiting events without waking anyone
-#   orchestrate.sh brief                   print what Claude would be given (also used by /orchestrate)
-#   orchestrate.sh wake                    wake Claude now, ignoring the gap (still respects the daily cap)
+#   orchestrate.sh brief                   print what the orchestrator would be given
+#   orchestrate.sh wake                    wake the orchestrator now, ignoring the gap (still respects the daily cap)
 #   orchestrate.sh goals                   list goals and their status
-#   orchestrate.sh planned G-001           used by Claude after writing a goal's task files
-#   orchestrate.sh done G-001 "summary"    used by Claude to close a milestone after wrap-up
+#   orchestrate.sh planned G-001           used by the orchestrator after writing a goal's task files
+#   orchestrate.sh done G-001 "summary"    used by the orchestrator to close a milestone after wrap-up
 set -uo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 GOALS="$AG/goals"; OD="$AG/orch"; mkdir -p "$GOALS" "$OD"
@@ -23,16 +23,13 @@ cmd_goal() {
   [ -n "${1:-}" ] || { echo 'usage: orchestrate.sh goal "milestone goal" [default|risky|fast]'; exit 1; }
   git -C "$ROOT" ls-files --error-unmatch "$AG/runner.sh" >/dev/null 2>&1 || {
     echo "Commit the kit first, so the agents branch starts from it:"
-    echo "  git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m \"agent pipeline\""; exit 1; }
-  [ "$ORCHESTRATOR" = claude ] || {
-    echo "ORCHESTRATOR=$ORCHESTRATOR: nothing would plan this goal. Run /plan in Claude Code instead,"
-    echo "or restart the loop with ORCHESTRATOR=claude."; exit 1; }
+    echo "  git add .agents AGENTS.md NOTES.md .gitignore && git commit -m \"agent pipeline\""; exit 1; }
   local n id f
   n=$(goal_files | sed 's/.*G-0*//; s/\.md$//' | sort -n | tail -1); id=$(printf 'G-%03d' $(( ${n:-0} + 1 )))
   f="$GOALS/$id.md"
   printf -- '---\nid: %s\ntitle: %s\nstatus: new\nprofile: %s\ncreated: %s\n---\n## Goal\n%s\n\n## Log\n' \
     "$id" "$(printf '%s' "$1" | tr '\n' ' ' | cut -c1-80)" "${2:-}" "$(now)" "$1" >"$f"
-  echo "queued $id. The next tick packs context (Muse) and wakes Claude to plan it."
+  echo "queued $id. The next tick packs context (Nano) and wakes the orchestrator to plan it."
 }
 
 cmd_goals() {
@@ -63,26 +60,26 @@ housekeeping() {
   local f id st g open
   # Merge conflicts: the base moved; just redo the task on the new base.
   "$AG/cos.sh" conflicts
-  # Stuck too often after orchestrator triage: stop spending Claude on it.
+  # Stuck too often after orchestrator triage: stop spending the orchestrator on it.
   for f in $(task_files); do
     [ "$(fm_get "$f" status)" = stuck ] || continue
     [ "${ORCH_MAX_TRIAGE:-2}" -gt 0 ] && [ "$(fm_get "$f" orch_triage)" -ge "$ORCH_MAX_TRIAGE" ] 2>/dev/null &&
       { fm_set "$f" status needs-you; tlog "$f" "stuck after $ORCH_MAX_TRIAGE orchestrator triages: needs you"; }
   done
-  # One goal at a time gets a context pack (context.md is shared), then waits for Claude to plan it.
+  # One goal at a time gets a context pack (context.md is shared), then waits for the orchestrator to plan it.
   local waiting=0
   for g in $(goal_files); do [ "$(fm_get "$g" status)" = packed ] && waiting=1; done
   if [ $waiting = 0 ]; then
     for g in $(goal_files); do
       [ "$(fm_get "$g" status)" = new ] || continue
       if "$AG/cos.sh" pack "$(goal_text "$g")" >>"$OLOG" 2>&1; then tlog "$g" "context packed"
-      else rm -f "$AG/context.md"; tlog "$g" "context pack failed; Claude plans from REPO_MAP.md"; fi
+      else rm -f "$AG/context.md"; tlog "$g" "context pack failed; the orchestrator plans from REPO_MAP.md"; fi
       fm_set "$g" status packed
       break
     done
   fi
   # A planned goal whose tasks are all merged or dropped is ready to wrap up. Run the cheap
-  # end-of-milestone batch review first so Claude only reads its verdict.
+  # end-of-milestone batch review first so the orchestrator only reads its verdict.
   for g in $(goal_files); do
     [ "$(fm_get "$g" status)" = planned ] || continue
     id=$(fm_get "$g" id); open=0
@@ -113,8 +110,8 @@ cmd_brief() {
   ev=$(cmd_events)
   echo "# Orchestrator brief $(now)"
   echo "Integration branch: $INTEGRATION_BRANCH. Main branch: $MAIN_BRANCH (never merge into it)."
-  echo "Profile: $PROFILE. Orchestrator wakes today: $(orch_calls_today)/$CLAUDE_ORCH_DAILY_CAP."
-  echo "Claude retries today: $(count_today "$CLAUDE_ESC")/$CLAUDE_DAILY_CAP. GOAT calls today: $(goat_today)/$GOAT_DAILY_RUN_CAP."
+  echo "Profile: $PROFILE. Orchestrator wakes today: $(orch_calls_today)/$ORCH_DAILY_CAP."
+  echo "Last-rung retries ($ESC_MODEL) today: $(esc_today)/$ESC_DAILY_CAP."
   echo; echo "## Events to resolve"
   [ -n "$ev" ] && echo "$ev" | sed 's/^/- /' || echo "- none"
   echo; echo "## All tasks"; echo '```'; "$AG/runner.sh" status; echo '```'
@@ -140,7 +137,7 @@ cmd_brief() {
   echo
 }
 
-# ---------- waking Claude ----------
+# ---------- waking the orchestrator ----------
 cmd_wake() { # [force]
   lock orchestrator || { echo "orchestrator already running"; return 0; }
   _wake "$@"; local r=$?; unlock orchestrator; return $r
@@ -149,19 +146,17 @@ _wake() {
   local force=${1:-} ev sig last model kinds pf out rc t0 bu id tf n
   ev=$(cmd_events)
   [ -n "$ev" ] || { echo "no events"; return 0; }
-  bu=$(cat "$OD/backoff_until" 2>/dev/null || echo 0)
-  [ "$(date +%s)" -lt "${bu:-0}" ] && { echo "backing off after a Claude usage limit"; return 0; }
-  if [ "$(orch_calls_today)" -ge "$CLAUDE_ORCH_DAILY_CAP" ]; then
+  if [ "$(orch_calls_today)" -ge "$ORCH_DAILY_CAP" ]; then
     [ "$(cat "$OD/cap_noted" 2>/dev/null)" = "$(today)" ] ||
-      { olog "daily orchestrator cap ($CLAUDE_ORCH_DAILY_CAP) reached; events wait until tomorrow"; today >"$OD/cap_noted"; }
+      { olog "daily orchestrator cap ($ORCH_DAILY_CAP) reached; events wait until tomorrow"; today >"$OD/cap_noted"; }
     echo "orchestrator cap reached"; return 0
   fi
-  # The date is part of the signature, so an event Claude left unresolved gets one more look per day.
+  # The date is part of the signature, so an event the orchestrator left unresolved gets one more look per day.
   # Goal creation times are in it too, so a new goal that reuses a deleted goal's id still counts as new.
   sig=$(printf '%s\n%s\n%s' "$(today)" "$ev" "$(for id in $(echo "$ev" | awk '$1=="plan"||$1=="wrapup"{print $2}'); do
           fm_get "$GOALS/$id.md" created; done)" | cksum | cut -d' ' -f1); last=$(cat "$OD/last_sig" 2>/dev/null)
   if [ "$force" != force ]; then
-    # Same unresolved events as the last successful wake: Claude already saw them. Don't pay twice.
+    # Same unresolved events as the last successful wake: the orchestrator already saw them. Don't pay twice.
     [ "$sig" = "$last" ] && { echo "events unchanged since last wake"; return 0; }
     # Planning skips the gap, unless the last wake failed (then wait, don't retry every tick).
     if ! echo "$ev" | grep -q '^plan ' || [ -f "$OD/last_failed" ]; then
@@ -169,7 +164,7 @@ _wake() {
       [ $(( $(date +%s) - lw )) -lt $(( ORCH_MIN_GAP_MIN * 60 )) ] && { echo "within ORCH_MIN_GAP_MIN; batching"; return 0; }
     fi
   fi
-  # Count triage attempts so a task can't loop through Claude forever.
+  # Count triage attempts so a task can't loop through the orchestrator forever.
   for id in $(echo "$ev" | awk '$1=="triage"{print $2}'); do
     tf="$TASKS/$id.md"; n=$(fm_get "$tf" orch_triage); fm_set "$tf" orch_triage $(( ${n:-0} + 1 ))
   done
@@ -179,29 +174,46 @@ _wake() {
   { cat "$AG/prompts/orchestrator.md"; echo; cmd_brief; } >"$pf"
   olog "wake ($model): $(echo "$ev" | tr '\n' ';')"
   date +%s >"$OD/last_wake"; t0=$(date +%s)
-  # Official Claude Code CLI on your Pro login, in the main checkout, with a pinned tool list.
-  # Anything not in ORCH_ALLOWED_TOOLS is refused in print mode, so it can't edit code or merge.
-  ( cd "$ROOT" && env -u ANTHROPIC_API_KEY "$TIMEOUT" "$ORCH_TIMEOUT" claude \
-      -p "You are the pipeline orchestrator. Follow the instructions and brief provided on stdin." \
-      --model "$model" --allowedTools "$ORCH_ALLOWED_TOOLS" --disallowedTools "$ORCH_DISALLOWED_TOOLS" \
-      <"$pf" ) >"$out" 2>"$out.err"
-  rc=$?
-  if [ $rc -ne 0 ] && grep -qiE "$CLAUDE_LIMIT_PATTERN" "$out" "$out.err" 2>/dev/null; then
-    # Refused by the usage limit: not counted against CLAUDE_ORCH_DAILY_CAP.
-    logrun orch orchestrator-limit "ORCH_$(echo "$model" | tr '[:lower:]' '[:upper:]')" "$rc" "$(( $(date +%s)-t0 ))"
-    echo $(( $(date +%s) + ORCH_BACKOFF_MIN * 60 )) >"$OD/backoff_until"
-    olog "Claude usage limit hit; no wakes for $ORCH_BACKOFF_MIN min"; return 0
-  fi
-  logrun orch orchestrator "ORCH_$(echo "$model" | tr '[:lower:]' '[:upper:]')" "$rc" "$(( $(date +%s)-t0 ))"
+  # Through the shared dispatcher (logs, fallbacks), with file tools and no shell: it asks for commands instead.
+  local dirty; dirty=$(git -C "$ROOT" status --porcelain | cut -c4-)
+  run_model orch orchestrator "$model" "$ORCH_TOOLS" "$pf" "$out" "$ROOT" "$ORCH_TIMEOUT"; rc=$?
+  orch_undo_stray "$dirty"
+  [ $rc -eq 0 ] && orch_run_commands "$out"
   if [ $rc -eq 0 ]; then echo "$sig" >"$OD/last_sig"; rm -f "$OD/last_failed"
   else touch "$OD/last_failed"; olog "wake failed (rc $rc), see $out.err"; fi
   { echo "--- $(now) reply:"; tail -n 40 "$out"; } >>"$OLOG"
-  # Anything Claude left unresolved is still an event; the signature check stops a same-state rewake.
+  # Anything left unresolved is still an event; the signature check stops a same-state rewake.
   echo "wake done (rc $rc); reply in $out"
 }
 
+# Orchestrator guards. Undo edits to files that were clean before the wake, outside task files and NOTES.md.
+orch_undo_stray() {
+  local f
+  git -C "$ROOT" status --porcelain | cut -c4- | while IFS= read -r f; do
+    case "$f" in .agents/tasks/*|.agents/orch/*|.agents/logs/*|NOTES.md) continue ;; esac
+    printf '%s\n' "$1" | grep -qxF "$f" && continue
+    if git -C "$ROOT" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+      git -C "$ROOT" checkout -q -- "$f"; olog "undid orchestrator edit to $f (outside its scope)"
+    else olog "orchestrator created $f (outside its scope); left it for you to check"; fi
+  done
+}
+# Run the RUN: lines from the reply, in order, but only the kit commands the orchestrator is allowed.
+orch_run_commands() {
+  local line args a ok
+  grep -E '^RUN: ' "$1" | sed 's/^RUN: //' | while IFS= read -r line; do
+    args=(); ok=no
+    while IFS= read -r -d '' a; do args+=("$a"); done < <(python3 -c \
+      'import shlex,sys; sys.stdout.write("".join(a+"\0" for a in shlex.split(sys.argv[1])))' "$line" 2>/dev/null)
+    case "${args[0]:-}" in
+      .agents/runner.sh) case "${args[1]:-}" in show|status|approve|reject|requeue|escalate|park|drop) ok=yes ;; esac ;;
+      .agents/orchestrate.sh) case "${args[1]:-}" in planned|done|goals) ok=yes ;; esac ;;
+    esac
+    if [ $ok = yes ]; then olog "run: $line"; ( cd "$ROOT" && "${args[@]}" ) >>"$OLOG" 2>&1
+    else olog "refused orchestrator command: $line"; fi
+  done
+}
+
 cmd_tick() {
-  [ "$ORCHESTRATOR" = claude ] || { echo "ORCHESTRATOR=$ORCHESTRATOR: nothing to do"; return 0; }
   housekeeping
   cmd_wake
 }

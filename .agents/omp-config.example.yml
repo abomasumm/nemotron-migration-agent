@@ -1,9 +1,0 @@
-# Merge into ~/.omp/agent/config.yml. Points omp's built-in model roles at 9router so background
-# features (titles, compaction, the smol/slow roles) never fall back to a provider you haven't set up.
-# The pipeline always passes --model explicitly; this only covers omp's own side calls and your
-# interactive sessions.
-modelRoles:
-  default: 9router/ocg/deepseek-v4.1-flash
-  smol: 9router/ocg/mimo-v2.6-flash
-  slow: 9router/ocg/muse-spark-1.3-contributor
-defaultThinkingLevel: high

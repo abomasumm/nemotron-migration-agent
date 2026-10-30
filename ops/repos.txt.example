@@ -1,7 +1,0 @@
-# repos.txt: the repos kitctl may touch. One per line: <short name> <path>. ~ is allowed.
-# Copy to repos.txt. A repo missing from this file can't be reached through kitctl at all.
-mentora      ~/Documents/GitHub/Mentora
-# dashboard-1  ~/code/dashboard-1
-# dashboard-2  ~/code/dashboard-2
-# portfolio    ~/code/portfolio
-# data         ~/code/data-project

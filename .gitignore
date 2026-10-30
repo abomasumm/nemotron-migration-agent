@@ -1,3 +1,14 @@
 # macOS folder metadata
 .DS_Store
 __MACOSX/
+
+# API keys (never commit)
+.agents/secrets.sh
+# pi runtime files (only the repo's models.json is committed)
+.agents/pi/*
+!.agents/pi/models.json
+# pipeline runtime state
+.worktrees/
+.agents/logs/
+.agents/locks/
+.agents/orch/

@@ -1,323 +1,257 @@
-# Agent pipeline kit: Claude-orchestrated, Architecture B through 9router, on Oh My Pi (no Paperclip) (I WILL CHANGE THIS IN A MOMENT)
+# Nemotron Migration Agent
 
-Claude is the orchestrator. Opus 5.5 (Claude Code, Pro login) plans milestones, triages tasks the pipeline
-couldn't finish, signs off risky work and closes milestones. It is woken by `orchestrate.sh` only when one of
-those decisions is waiting, so it spends Pro quota on decisions, not on polling. Cheap models on OpenCode Go
-and Command Code GOAT do the building and checking through Oh My Pi (omp) -> 9router. Plain Pi still works:
-set HARNESS=pi. Scripts do everything deterministic. Claude never goes through 9router.
+**A legacy code migration agent that proves it didn't break anything.** Point it at an old codebase: it pins
+the current behaviour with tests, NVIDIA Nemotron Ultra plans the migration module by module, open models
+on Nebius Token Factory make the edits, and nothing merges until the tests stay green and a model from a
+different family signs off. A human always makes the final merge.
 
-# How to run it
+Built for the Nebius x NVIDIA hackathon (track: Coding and Agentic Engineering). Every model call runs on
+Nebius Token Factory; nothing depends on a local model router or a
+paid chat subscription.
 
-The workflow, start to finish. Steps A to C happen once; D repeats for every milestone.
+> Status: work in progress. The pipeline runs end to end on Token Factory; migration mode and the
+> dashboard are being built. See the [roadmap](#roadmap).
 
+## Why
+
+Migrations (JavaScript to TypeScript, framework upgrades, API version bumps) are the work teams put off
+because the risk is silent breakage. AI coding agents make the edits fast, but you still have to trust
+them. This agent is built around proof instead of trust:
+
+- **Behaviour is pinned first.** Characterization tests capture what the old code does, and they must pass
+  before any change is made.
+- **Every change has to keep them green**, plus lint, typecheck, build, a scope check and a security scan.
+- **Models check each other.** Two workers from different model families compete on each task, and the
+  judge and reviewers are Nemotron, a family no worker uses, so no model grades its own family's work.
+- **The expensive model only decides.** Nemotron Ultra is woken only when a decision is waiting (plan a
+  goal, triage a stuck task, sign off a risky change), not to poll or write code.
+- **A human merges.** Agents merge into an `agents` branch; only you merge `agents` into `main`.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  you([You]) -- "queue a migration goal" --> goal[orchestrate.sh goal]
+  you -- "review, merge agents → main" --> mainbr[(main)]
+
+  subgraph loop["loop.sh (every few minutes)"]
+    tick[orchestrate.sh tick<br/>events: plan, triage, sign-off, wrap-up]
+    run[runner.sh run<br/>task state machine]
+  end
+
+  goal --> tick
+  tick -- "wakes on events" --> ultra
+  ultra -- "task files + RUN: commands<br/>(allow-listed)" --> tick
+  tick --> run
+
+  subgraph task["Per task, in its own git worktree"]
+    tests[Tests written first]
+    wa[Worker A]
+    wb[Worker B]
+    gates[Gates: tests, lint, typecheck, build,<br/>scope, gitleaks, semgrep]
+    judge[Judge picks one]
+    review[Cross-family review]
+  end
+
+  run --> tests & wa & wb
+  wa & wb --> gates --> judge --> review
+  review -- "pass" --> agents[(agents branch)]
+  agents --> mainbr
+
+  subgraph tf["Nebius Token Factory (all calls through pi)"]
+    ultra[Nemotron Ultra<br/>orchestrator, senior review, last retry]
+    super[Nemotron Super<br/>judge, first review, wrap-ups]
+    nano[Nemotron Nano<br/>repo map, context packs, status]
+    vl[Nemotron Super VL<br/>UI screenshot QA]
+    kimi[Kimi K2.7 Code<br/>worker A]
+    ds[DeepSeek V4.1 Flash<br/>worker B, bulk]
+    qwen[Qwen 3.5<br/>test writer, first retry]
+  end
+
+  wa -.-> kimi
+  wb -.-> ds
+  tests -.-> qwen
+  judge -.-> super
+  review -.-> super & ultra
+  run -. "runs.csv: every call logged" .-> dash[Dashboard<br/>planned]
 ```
-A. Machine setup (once)  ->  B. Add a repo (once per repo)  ->  C. Control desk (once, optional)
-                                         |
-                                         v
-D. Each milestone:  brief -> queue -> loop builds -> you check -> merge + push -> (update kit) -> next brief
-```
 
-## A. Machine setup (once per Mac)
-1. **Install the tools.**
-   ```bash
-   brew install bash coreutils jq tmux gh node gitleaks semgrep ripgrep
-   ```
-   Plus Claude Code, Oh My Pi (`brew install can1357/tap/omp`), 9router (`npm i -g 9router`) and,
-   as a fallback harness, Pi. Put `/opt/homebrew/bin` first in your PATH (in `~/.zshrc`): `which bash`
-   must print `/opt/homebrew/bin/bash`, also inside tmux, and `gtimeout` must exist.
-2. **Claude Code.** Run `claude`, then `/login` with your Pro account. `ANTHROPIC_API_KEY` must not be set.
-3. **9router.** Change the default password, bind to 127.0.0.1, require an API key, turn Cloud Sync off.
-   Add OpenCode Go (`ocg/`) and Command Code GOAT (`cmc/`). RTK on; Caveman, Ponytail, Headroom, PXPipe off;
-   no fallback combos (the kit does fallbacks). Add `export NINEROUTER_API_KEY=...` to `~/.zshrc`.
-4. **omp.**
-   - Install the 9router plugin: `omp plugin install pi-9router-ext`. The kit loads it explicitly
-     (`OMP_EXTENSIONS` in routing.sh), because pipeline runs switch other extensions off.
-   - Merge `.agents/omp-models.example.yml` into `~/.omp/agent/models.yml`. It includes the
-     `9router-direct` provider, which visual QA needs: the plugin sends Gemini a token limit GOAT rejects.
-   - Merge `.agents/omp-config.example.yml` into `~/.omp/agent/config.yml`.
-   - Check: `omp models 9router` lists the `ocg/` and `cmc/` models.
-5. **Keep repos out of iCloud.** If "Desktop & Documents Folders" syncs to iCloud, keep repos elsewhere
-   (e.g. `~/code`): sync fights with git worktrees. Repo paths must not contain spaces.
+### How a goal moves through the pipeline
 
-## B. Add a repo (once per repo)
-1. **Install the kit** from the kit folder, pointing at the repo:
-   ```bash
-   bash ~/path/to/agent-pipeline-kit/setup.sh ~/code/my-repo
-   cd ~/code/my-repo
-   ```
-2. **Tell the kit about the repo.**
-   - `.agents/local.sh`: this repo's settings (PROFILE, ALLOW_TRAINING, MAIN_BRANCH, caps). Set
-     `ALLOW_TRAINING=no` for any code that isn't yours. Leave `routing.sh` alone; it belongs to the kit.
-   - `.agents/gates/check.sh`: the test, lint, typecheck and build commands. It detects Node
-     (`package.json`) and Python (`pyproject.toml`) by itself; add anything else.
-   - `AGENTS.md`: one line on the project, its commands and conventions. Every agent reads it.
-3. **Check everything.** Fix every FAIL; warnings are informational.
-   ```bash
-   .agents/doctor.sh             # tools, kit version, repo, 9router, omp (free)
-   .agents/doctor.sh --models    # every model replies "ready" (a little Go/GOAT quota)
-   .agents/doctor.sh --claude    # claude -p works on your Pro login (a little Pro quota)
-   ```
-4. **Commit the kit before the first goal** (the `agents` branch starts from what's committed;
-   `orchestrate.sh goal` refuses until it is), then map the repo:
-   ```bash
-   git add .agents .claude CLAUDE.md AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
-   .agents/cos.sh map            # writes REPO_MAP.md; skim it
-   ```
-5. **Empty or untested repo?** The pipeline can only check work against tests, and `check.sh` passes
-   everything when there's nothing to run. Make the first goal a scaffold that names the stack and sets up
-   test, lint, typecheck and build commands, or set that up yourself in an interactive Claude Code session.
-   Legacy code without tests: first add tests that pin down current behaviour.
+1. **Queue.** You write a short brief (3 to 6 testable acceptance criteria) and run `orchestrate.sh goal`.
+2. **Context.** Nemotron Nano packs the relevant context from the repo map.
+3. **Plan.** Nemotron Ultra splits the goal into small tasks (one reviewable change each, with the files
+   each worker may touch) and writes them as task files.
+4. **Build.** Per task, in its own worktree: a third-family model writes tests first; two workers from
+   different families implement it in parallel.
+5. **Gate.** Tests, lint, typecheck, build, a scope check (workers may only touch listed files) and a
+   security scan (gitleaks, semgrep) run on each attempt.
+6. **Judge and review.** Nemotron Super picks the better passing attempt and reviews it; risky and long
+   tasks also get a senior review from Nemotron Ultra.
+7. **Retry or triage.** A failed task climbs a retry ladder (another family, then Ultra). If the ladder runs
+   out, Ultra re-briefs, splits, escalates or parks it for you.
+8. **Merge.** Passing work merges into `agents`; risk: high tasks wait for sign-off first. When every task
+   is in, a batch review runs and Ultra closes the milestone. You merge `agents` into `main`.
 
-## C. Control desk with DeepSeek Harness (once, optional)
-dsh is where you draft briefs and check on pipelines in plain language. It acts only through `kitctl`,
-an allow-listed, logged wrapper. Everything it does, you can also do by hand (shown in D).
-1. Copy the control desk outside your repos and list your repos:
-   ```bash
-   cp -R ~/path/to/agent-pipeline-kit/ops ~/code/ops && cd ~/code/ops
-   cp repos.txt.example repos.txt     # edit: "<name> <path>" per repo
-   ./kitctl overview                  # every repo's goals, tasks, usage and loop health
-   ```
-2. In dsh (`tmux new -s dsh 'npx @deepseek-ai/dsh web --no-open'`, then http://127.0.0.1:3080):
-   9router as a custom provider (`http://127.0.0.1:20128/v1`, `openai-completions`, DeepSeek V4.1 Flash on
-   `cmc/`); `~/code/ops` as a **workspace-write** workspace (dsh reads `ops/AGENTS.md`, its rules); each repo
-   as a **read-only** workspace. Never full access.
-3. Run the trust test in `ops/README.md` before relying on it, and optionally add the morning-summary and
-   weekly routing-report scheduled tasks.
+### Which model does what
 
-## D. Each milestone
-One goal per repo at a time. A goal is one milestone: typically 3 to 6 tasks and a few hours of runtime.
+| Role | Model on Token Factory | Why |
+| --- | --- | --- |
+| Orchestrator, senior review, last retry | `nvidia/Nemotron-3-Ultra-550b-a55b` | Strongest reasoning, used only for decisions |
+| Judge, first review, milestone wrap-up | `nvidia/nemotron-3-super-120b-a12b` | Cheaper Nemotron; a family no worker uses |
+| Repo map, context packs, status notes | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | Fast and cheap for summarising |
+| UI screenshot QA | `nvidia/Nemotron-3.5-Super-VL` | Vision |
+| Worker A | `moonshotai/Kimi-K2.7-Code` | Coding model |
+| Worker B, bulk edits | `deepseek-ai/DeepSeek-V4.1-Flash` | Second family for best-of-2 |
+| Test writer, first retry | `Qwen/Qwen3.5-397B-A17B` | Third family, so tests aren't written by the worker's family |
 
-**1. Write the brief.** Use `ops/templates/goal-brief.md`: a one-line summary, the outcome, 3 to 6
-testable acceptance bullets naming real functions, routes and files, the scope (test files too), low or
-high risk, and constraints. In dsh: "draft a brief for <repo>: <idea>", then switch the chat to Sol or
-Kimi and ask what's missing or untestable. Sharper briefs mean fewer retries and fewer Claude wakes.
+All of this lives in [`.agents/routing.sh`](.agents/routing.sh); swap a model per repo in `.agents/local.sh`.
+Any OpenAI-compatible endpoint can be added as another provider in
+[`.agents/pi/models.json`](.agents/pi/models.json).
 
-**2. Queue it.** Pick the profile: `risky` for auth, payments, schema or migrations.
+### Design notes
+
+- **One dispatcher.** Every model call goes through `run_model` in [`.agents/lib.sh`](.agents/lib.sh): it
+  runs [pi](https://pi.dev) in print mode with a pinned tool list, logs the call to `runs.csv`, and walks a
+  fallback chain when Token Factory rate-limits a model.
+- **Isolated from your machine.** pi runs with the repo's own config directory (`.agents/pi/`) and with MCP,
+  extensions, skills and context-file discovery switched off, so pipeline runs never pick up your personal
+  setup.
+- **The orchestrator has no shell.** Ultra gets read and edit tools only. It lists the kit commands it
+  wants (`RUN: .agents/runner.sh requeue T-004 "hint"`) and `orchestrate.sh` runs only allow-listed ones,
+  without a shell. Edits it makes outside task files and `NOTES.md` are undone.
+- **State is plain files.** Goals and tasks are Markdown files with frontmatter; every call is a row in
+  `.agents/logs/runs.csv`. The dashboard will read these directly.
+
+## Setup
+
+Requirements: macOS or Linux, git, bash 4+, `timeout` (macOS: `brew install coreutils`), jq, curl,
+python3, [pi](https://pi.dev), and a Nebius Token Factory API key. gitleaks and semgrep are optional
+(their gate is skipped without them).
+
 ```bash
-.agents/orchestrate.sh goal "$(cat brief.md)" [risky]        # by hand, in the repo
-./kitctl my-repo goal --file briefs/my-repo-x.md [risky]     # or tell dsh "queue it"
+brew install bash coreutils jq gitleaks semgrep tmux
 ```
 
-**3. Make sure the loop is running.** It runs the scheduler and the orchestrator every 5 minutes.
-```bash
-tmux new -s agents 'caffeinate -is .agents/loop.sh'          # in the repo; Ctrl+b then d to detach
-tmux ls                                                      # "agents" must be listed
-```
-Within a few minutes Muse packs context, Claude is woken to plan, and task files appear.
+1. **Install the agent into the repo you want to migrate:**
+   ```bash
+   bash setup.sh ~/code/my-legacy-repo
+   cd ~/code/my-legacy-repo
+   ```
+2. **Add your key** to `.agents/secrets.sh` (git ignores it; `setup.sh` never copies it):
+   ```bash
+   export NEBIUS_API_KEY="..."
+   ```
+3. **Tell it about the repo.** Edit `.agents/gates/check.sh` for the repo's test, lint, typecheck and build
+   commands (Node and Python are detected automatically), and fill in `AGENTS.md`.
+4. **Check everything:**
+   ```bash
+   .agents/doctor.sh            # tools, key, every model offered by Token Factory, pi config
+   .agents/doctor.sh --models   # every model replies "ready" (uses a few credits)
+   ```
+5. **Commit the kit, then map the repo:**
+   ```bash
+   git add .agents AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
+   .agents/cos.sh map           # Nemotron Nano writes REPO_MAP.md
+   ```
+6. **Start the loop and queue a goal:**
+   ```bash
+   tmux new -s agents 'caffeinate -is .agents/loop.sh'
+   .agents/orchestrate.sh goal "$(cat brief.md)"
+   ```
 
-**4. Watch it (optional).**
-```bash
-.agents/orchestrate.sh goals      # packed -> planned -> wrapup -> done
-.agents/runner.sh status          # each task: queued -> building -> gating -> reviewing -> merged
-tail -f .agents/logs/runs.csv     # every model call as it happens
-~/code/ops/kitctl overview        # all repos at once, with today's usage against the caps
-```
-Claude is woken on its own for stuck tasks (re-brief, split, escalate or park) and for sign-off on
-high-risk tasks. You don't need to do anything unless a task lands in `needs-you`.
+## Usage
 
-**5. Handle `needs-you` tasks.** `.agents/runner.sh show T-012` explains what went wrong. Then either
-`.agents/runner.sh requeue T-012 "hint"`, or leave it parked and fix it yourself. dsh can explain the
-digest and propose the hint; `kitctl` lets it requeue or park only tasks in `needs-you`.
-
-**6. Check, merge, push** once the goal shows `done`. Claude never merges into main or pushes; you do.
-```bash
-git log --oneline main..agents                               # what the pipeline committed
-git checkout agents && npm ci && npm test && npm run build && git checkout main   # optional: run it yourself
-git status --short                                           # commit your own changes first, if any
-git merge agents && git push
-```
-The next runner pass fast-forwards `agents` to `main` by itself, so new tasks start from what you merged.
-If `git merge` reports a conflict, stop and look before resolving it.
-
-**7. Between milestones.**
-- Skim `NOTES.md`: Claude adds one-line lessons there (e.g. "list test files in scope").
-- Fold lessons into your brief template.
-- Pick up kit fixes, then restart the loop (see "Updating the kit in a repo" below):
-  ```bash
-  bash ~/path/to/agent-pipeline-kit/setup.sh --update .
-  ```
-
-## E. Habits
-- **Daily:** `kitctl overview` (or dsh's morning digest): anything in `needs-you`, stopped loops, pool pauses.
-- **Weekly:** read `ops/kitctl.log` (everything done through kitctl); check the Go and GOAT consoles.
-- **After two weeks:** `.agents/stats.sh 14`, then tune models and caps in `local.sh`. Raise `MAX_PARALLEL`
-  to 2 or 3 after about 20 clean tasks.
-- **Several repos:** give each its own loop and lower caps in each `local.sh` so they share one Pro plan
-  and one GOAT pool (see "One repo or several").
-
-## F. Stopping, pausing and fallback
-| To | Do |
-|---|---|
-| Stop the loop | `tmux kill-session -t agents` (running tasks stop; queued tasks wait) |
-| Restart it | `tmux new -s agents 'caffeinate -is .agents/loop.sh'` in the repo |
-| See why it exited | run `caffeinate -is .agents/loop.sh` without tmux and read the error |
-| Run without Claude orchestrating | `tmux new -s agents 'ORCHESTRATOR=cos caffeinate -is .agents/loop.sh'` (see below) |
-| Steer a pass yourself | `claude`, then `/orchestrate`; or `/plan` and `/signoff` |
-
-## G. When something looks wrong
-| Symptom | Likely cause and fix |
-|---|---|
-| `[exited]` right after starting tmux | The loop failed at once. Run it without tmux to see why (often tmux using macOS's old bash: fix PATH, `tmux kill-server`). |
-| Every model "not found" in `.out.err` | The 9router plugin isn't loaded: check `OMP_EXTENSIONS` in routing.sh and `doctor.sh`. |
-| Goal stays `packed`, log says "events unchanged" | Claude already saw this exact event and left it. Read its reply at the bottom of `.agents/logs/orchestrator.log`. |
-| Goal sits at `new` or `packed` and nothing runs | The loop isn't running (`tmux ls`). |
-| Task in `needs-you` | `runner.sh show T-NNN`; requeue with a hint, or fix by hand. |
-| Task in `needs-claude` | Opus retry cap reached for today; it resumes tomorrow. |
-| Tasks paused (`not_before` set) | A pool was full; see `.agents/logs/fallbacks.log`. They resume on their own. |
-| `doctor.sh --models` FAIL | Wrong model id, or the model rejects a setting; the error text says which. |
-| `git merge agents` conflict | Usually files changed on both sides (e.g. `.gitignore`). Look at both versions before choosing. |
-
-# Reference
-
-## Updating the kit in a repo
-```
-bash ~/path/to/agent-pipeline-kit/setup.sh --update /path/to/repo
-```
-It replaces the kit's own files (scripts, prompts, `routing.sh`, slash commands) with the kit's current
-version and records it in `.agents/KIT_VERSION`; `doctor.sh` warns when a repo is behind. A kit file you
-had edited in the repo is backed up to `.agents/.kit-backup/<time>/` first, and the output names it so you
-can move the setting into `local.sh`. Never touched: `.agents/local.sh`, `.agents/gates/check.sh`,
-`AGENTS.md`, `NOTES.md`, tasks and goals. Run it between milestones, commit, and restart the loop.
-
-| File | Owned by | On `--update` |
-|---|---|---|
-| `.agents/*.sh`, `prompts/`, `routing.sh`, `.claude/commands/` | kit | replaced (edits backed up) |
-| `.agents/local.sh` | repo | never touched |
-| `.agents/gates/check.sh`, `AGENTS.md`, `NOTES.md` | repo | never touched |
-
-Settings resolve in this order, last wins: `routing.sh` defaults, then `local.sh`, then a per-run
-environment override (`PROFILE=fast .agents/runner.sh run`), then the profile's adjustments. The risky
-profile scales Claude caps rather than replacing them, so a lowered cap in `local.sh` stays lower.
-
-## What happens inside a milestone
-```
-orchestrate.sh goal       -> goal G-NNN is new
-tick: Muse packs context  -> packed; Claude wakes, writes .agents/tasks/T-NNN.md, marks it planned
-runner: per task          -> tests first (must fail on the old code), two workers, gates, judge,
-                             first review (other family), senior review if risky -> merged into `agents`
-tick: stuck task          -> Claude re-briefs, splits, escalates or parks it for you
-tick: high-risk task      -> Claude reads the diff and approves or rejects
-tick: all tasks merged    -> batch review of small tasks -> Claude (Sonnet) wraps up -> done
-you                       -> merge `agents` into main, push
-```
-Anything Claude hands back to you is `needs-you` in `runner.sh status`, with the question in the task's
-log and in `.agents/logs/orchestrator.log`.
-
-## Fallback mode
-`ORCHESTRATOR=cos` (the v3 behaviour) is for when Pro quota is short or the `claude` CLI is broken: Muse
-triages stuck tasks once a day, and you run `/plan` and `/signoff` yourself. Switch by restarting the loop
-with `ORCHESTRATOR=cos` (or set it in `local.sh`). In this mode `orchestrate.sh goal` refuses, because
-nothing would plan the goal, and the loop warns about goals left open from claude mode. Merge conflicts are
-still re-queued every pass. A middle ground is `ORCHESTRATOR=claude` with `ORCH_AUTO_SIGNOFF=no`: Claude
-plans and triages, you sign off.
-
-## One repo or several
-It's one system. Every repo runs this kit unchanged, with its own loop, task queue and Claude orchestrator.
-Going from one repo to several adds a layer above the repos. Nothing inside a repo changes:
-
-| | One repo | Several repos |
-|---|---|---|
-| Kit in each repo | as above | as above, installed in each |
-| `ops/repos.txt` | one line | one line per repo |
-| Who queues goals | you (or dsh through `kitctl`, on your say) | dsh's scheduled check, from `ops/backlog.md` (not built yet) |
-| Per-repo caps | routing.sh defaults | lowered per repo in `.agents/local.sh` so all repos fit one Pro plan, one Go pool and one GOAT pool |
-
-Start with one repo. Add the portfolio layer once a second repo has run a few goals cleanly. `local.sh`
-and `kitctl` exist; the cross-repo backlog and its scheduled check are designed but not built yet.
-
-`docs/architecture.html` describes the whole system. A switch at the top changes the view between
-**One repo** and **Several repos**. Open it with `#multi` at the end of the URL to start on the
-several-repos view.
-
-## Control desk (`ops/`)
-`kitctl` is the only way dsh touches a pipeline: status, goals, usage and logs any time; queue a goal, or
-requeue or park a `needs-you` task, when you say so; never approve, reject, escalate, drop, git or file
-edits. Every call is logged to `kitctl.log`. dsh's rules are in `ops/AGENTS.md`, which dsh reads
-automatically. Also there: `repos.txt`, the goal-brief template, and the morning-summary and weekly
-routing-report prompts. Setup and the trust test are in `ops/README.md`.
-
-## How the orchestrator spends Pro quota
-| Setting (routing.sh) | Default | What it does |
-|---|---|---|
-| `ORCH_MODEL` / `ORCH_LIGHT_MODEL` | opus / sonnet | Opus for planning, triage and sign-off; Sonnet when a wake only has wrap-ups. |
-| `CLAUDE_ORCH_DAILY_CAP` | 10 (risky: 16) | Wakes per day, separate from `CLAUDE_DAILY_CAP` (Opus retries). Events wait for tomorrow after that. |
-| `ORCH_MIN_GAP_MIN` | 30 (fast: 10) | Minimum time between wakes; events arriving meanwhile go into one wake. Planning skips it. |
-| `ORCH_MAX_TRIAGE` | 2 | A task that stays stuck after this many triages goes to `needs-you` without another wake. |
-| `ORCH_AUTO_SIGNOFF` | yes | no = risky tasks wait for you to run `/signoff`. |
-| `ORCH_BACKOFF_MIN` | 60 | After a Pro usage-limit error, no wakes for this long (not counted against the cap). |
-| `ORCH_ALLOWED_TOOLS` | see file | Headless permissions: read anything, edit task files and NOTES.md, run only kit commands and read-only git. |
-
-A wake is skipped when the waiting events are identical to the last successful wake (Claude already saw them);
-an unresolved event gets one more look the next day. Every wake is a row in `runs.csv` (role `orchestrator`,
-model `ORCH_OPUS` or `ORCH_SONNET`), its prompt is `.agents/orch/wake.prompt`, and its reply goes to
-`.agents/orch/wake-*.out` and `.agents/logs/orchestrator.log`.
-
-## Profiles
-Set the repo's usual profile with `PROFILE=` in `.agents/local.sh`. Override it for one run with
-`PROFILE=fast .agents/runner.sh run`, or for one task with `profile: risky` in the task's frontmatter.
-
-| Profile | Use it for | What changes |
-|---|---|---|
-| `default` | Most work | Best-of-2 on feature/debug/data/ui, Sol senior review on risky and long tasks, one task at a time. Bulk/long run any time (`OFFPEAK_ONLY=no`; set yes to hold them for off-peak). |
-| `risky` | Auth, payments, migrations, production data | Every task treated as risk: high: two workers, judge, Sol senior review, Opus sign-off on every task; no review shortcuts; one task at a time; Opus retry cap 3/day. Uses noticeably more Opus quota. |
-| `fast` | Prototypes, internal tools, urgent backlogs | One worker unless a task is risk: high, no judge, 3 tasks in parallel, 60 s polling in loop.sh, 10 min pause when pools are full, DeepSeek at high effort, bigger review shortcut (50 lines). |
-
-## Task statuses
-`queued -> claimed -> building -> gating -> reviewing -> merged`
-Side exits: `needs-approval` (risk high, the orchestrator signs off), `needs-claude` (Claude retry cap hit,
-resumes next day), `stuck` (retry chain exhausted; the orchestrator triages), `conflict` (auto re-queued),
-`needs-you` (parked for you), `dropped` (closed without merging, e.g. split into smaller tasks).
-
-Goal statuses: `new -> packed -> planned -> wrapup -> done`.
-
-## Commands
 | Command | What it does |
-|---|---|
-| `runner.sh run` | Scheduler. Starts queued tasks up to MAX_PARALLEL; respects `after:` and off-peak hours. |
-| `runner.sh task T-012` | Run one task now, in the foreground (debugging). |
-| `runner.sh approve T-012` / `reject T-012 "why"` | Used by /signoff. |
-| `runner.sh batch` | One review over all small tasks that skipped per-task review. |
-| `runner.sh status [--json]` | Table of all tasks (JSON lines for the orchestrator). |
-| `runner.sh show T-012` | Compact digest of one task: brief, log, verdicts, last failure, gates, diffstat. |
-| `runner.sh requeue / escalate / park / drop T-012 "text"` | Orchestrator actions: run again with a hint, run on the Claude retry, hand to you, close. |
-| `orchestrate.sh goal "text" [profile]` | Queue a milestone goal. |
-| `orchestrate.sh tick` | Housekeeping, then wake Claude if events are waiting (loop.sh and cron call this). |
-| `orchestrate.sh events` / `brief` / `goals` | What's waiting, what Claude would be given, goal progress. |
-| `orchestrate.sh wake` | Wake Claude now, ignoring the gap (still capped). |
-| `cos.sh pack "goal"` / `map` / `status` / `triage` / `daily` | Cheap-model helper jobs: context pack, repo map, status note. |
-| `cos.sh conflicts` | Re-queue merge-conflicted tasks on the new base (no model; runs every loop pass). |
-| `doctor.sh [--models] [--claude]` | Health checks. |
-| `stats.sh [days]` | Per-model calls, errors, speed, gate pass rate and best-of-2 wins in this repo. Use it to tune `local.sh`. |
-| `loop.sh` | Scheduler and orchestrator tick in a tmux window (recommended over cron). |
+| --- | --- |
+| `orchestrate.sh goal "brief" [profile]` | Queue a milestone goal; Ultra plans it on the next tick |
+| `orchestrate.sh goals` | Goal progress: `new → packed → planned → wrapup → done` |
+| `orchestrate.sh brief` | Print what the orchestrator would be given (free) |
+| `orchestrate.sh wake` | Wake the orchestrator now (still respects the daily cap) |
+| `runner.sh status` | Every task: `queued → building → gating → reviewing → merged` |
+| `runner.sh show T-012` | Digest of one task: brief, log, verdicts, last failure, gates, diffstat |
+| `runner.sh approve` / `reject T-012 "why"` | Sign off a risk: high task yourself |
+| `runner.sh requeue T-012 "hint"` | Run a task again with a hint |
+| `runner.sh task T-012` | Run one task in the foreground (debugging) |
+| `stats.sh [days]` | Calls, errors, gate pass rate and best-of-2 wins per model |
+| `doctor.sh [--models]` | Check the setup |
 
-## Where to look when something breaks
-- `.agents/logs/runs.csv`: every model call (date, time, task, role, model, exit code, seconds)
-- `.agents/logs/fallbacks.log`: calls that overflowed from one plan to the other
-- `.agents/tasks/T-012.gates.log`: test, scope and security output
-- `.agents/tasks/T-012.*.out` and `.out.err`: model replies and errors
-- `.agents/logs/T-012.log` and `cron.log`: runner output
-- `.agents/logs/orchestrator.log`: every wake, its events and Claude's report; `.agents/orch/`: prompts and replies
-- 9router dashboard: raw requests, RTK savings, provider errors
+Profiles: `default` (best-of-2 on features, senior review on risky work), `risky` (every task treated as
+high risk, sign-off on everything; use for migrations of core modules) and `fast` (one worker, no judge,
+three tasks in parallel). Set per run with `PROFILE=risky`, per goal as the second argument to `goal`, or
+per task with `profile:` in its frontmatter.
 
-## How the kit drives omp
-Each call is `omp -p --no-session --no-extensions -e <9router plugin> --no-skills --no-rules --model <9router model> --thinking <level> --tools <set>`,
-with the prompt on stdin. Workers get `OMP_WORKER_TOOLS` (read, edit, write, bash, grep, glob by default: add omp's LSP/AST
-tools there if you want workers to use them), read-only jobs get `OMP_READ_TOOLS`, reviewers get `--no-tools`.
-Pinning the tools keeps omp's subagent/task tools from starting extra model calls. The repo map and context pack run
-in a throwaway checkout (`.worktrees/_readonly`), so they can't touch your working copy.
+Where to look: `.agents/logs/runs.csv` (every model call), `.agents/logs/orchestrator.log` (every wake and
+the commands it ran), `.agents/tasks/T-012.md` (the task and its log), `.agents/tasks/T-012.gates.log`.
 
-## Safety rules baked in
-- Claude only runs through the official `claude` CLI, with ANTHROPIC_API_KEY removed from its environment.
-- The orchestrator can't write code, commit, merge into main or push: its headless tool list only allows task
-  files, NOTES.md, kit commands and read-only git. Only you merge `agents` into main.
-- Models that train on your prompts (Muse Contributor) only run when `ALLOW_TRAINING=yes` (set it per repo in `local.sh`).
-- Workers can only change files listed in the brief; `.agents/`, `.claude/` and `CLAUDE.md` are always off limits.
-- Claude retries (Opus by default) and orchestrator wakes have separate daily caps; GOAT calls are capped per day.
-- Go and GOAT each meter one shared pool. When a call hits a capacity error (RATE_LIMIT_PATTERN), it walks
-  that role's fallback chain in routing.sh (`fallback_chain`, `fallback_chain_for_role`): the same model on
-  the other plan first, then free options where a weaker answer is safe. Workers never drop to free models;
-  if every option is full the task pauses for 30 minutes (status queued, `not_before` set). Every switch is
-  written to `.agents/logs/fallbacks.log`.
-- Free models (OpenCode Free, Go's free models) are listed and explained at the top of
-  routing.sh. Ones that may log or train on prompts only run when `ALLOW_TRAINING=yes`.
-- Types listed in `BEST_OF_2` always get two competing workers from different families.
+## Roadmap
+
+Deadline: Oct 31, 2026, 01:00 GMT (Devpost).
+
+### Done
+
+- [x] Every model call on Nebius Token Factory through pi; 9router, Oh My Pi, the Claude CLI and the
+      subscription plan caps removed
+- [x] Nemotron Ultra as orchestrator, Super as judge and reviewer, Nano for maps and context, Super VL for
+      UI QA; Kimi, DeepSeek and Qwen as the three worker and test-writer families
+- [x] Repo-local pi config (`.agents/pi/models.json`), isolated from the user's own pi setup
+- [x] Orchestrator without a shell: allow-listed `RUN:` commands, out-of-scope edits undone (tested
+      against injection attempts)
+- [x] API key in a git-ignored `secrets.sh` that `setup.sh` never copies
+- [x] `doctor.sh` checks the key, that every model is offered by Token Factory and visible to pi;
+      `--models` smoke test passes for all 7 models
+- [x] Both worker models verified editing files through the dispatcher
+- [x] Retry ladder, rate-limit fallbacks and daily caps rebuilt for Token Factory models
+
+### Next, for the submission
+
+- [ ] **Demo repo:** a small real-world JavaScript project to migrate to TypeScript
+- [ ] **First real run:** Ultra plans a goal on the demo repo and one milestone merges into `agents`
+- [ ] **Migration mode:**
+  - [ ] Characterization tests that must *pass* on the old code (today's rule is "new tests must fail on
+        the old code", which suits features, not migrations)
+  - [ ] A migration planner prompt: one task per module, in dependency order
+  - [ ] A keep-green gate: the pinned tests plus typecheck must pass after every change
+- [ ] **Flaky-test check:** rerun a failing test a few times; mark it flaky instead of failing the worker,
+      and Nano writes a short diagnosis
+- [ ] **Dashboard:** goal progress, task board, tests going red to green, diffs, which model made each
+      decision, calls per Nemotron tier (read-only, from task files and `runs.csv`)
+- [ ] **Release:** LICENSE (MIT), `gitleaks detect` over the history, make the repo public
+- [ ] **Docs:** update `docs/architecture_hackathon.html` to the pi-only design
+- [ ] **Submission:** demo video under 3 minutes, Devpost description, Token Factory and NVIDIA feedback,
+      "what changed during the hackathon" write-up
+
+### After the hackathon
+
+- [ ] Turn the dashboard into an app: a small API server over the state files, with actions (queue a goal,
+      approve, merge) and a settings screen for providers, keys and the model per role
+- [ ] Harness adapters, so each role can use a different harness (pi today; Codex and others later)
+- [ ] Run gates as Nebius Serverless Jobs instead of on the local machine
+- [ ] More migration recipes (framework upgrades, API version bumps, Python 2 to 3)
+
+## What changed during the hackathon
+
+This project started as `agent-pipeline-kit`, a general feature-building pipeline that used Claude Opus as
+the orchestrator and cheap models through a local router. During the hackathon it was rebuilt to run
+entirely on Nebius Token Factory with NVIDIA Nemotron making every decision, the orchestrator was moved off
+the Claude CLI onto a shell-less, allow-listed design, and it is being turned into a migration agent with
+characterization tests and a dashboard. See the roadmap above for what is done.
+
+## Repo layout
+
+```
+setup.sh                 install or update the agent in a target repo
+.agents/
+  routing.sh             every model and routing decision
+  lib.sh                 dispatcher (run_model), task-file helpers, caps
+  orchestrate.sh         goals, events, orchestrator wakes, RUN: allow-list
+  runner.sh              task state machine: tests, workers, gates, judge, review, merge
+  cos.sh                 Nano helper jobs: repo map, context pack, status note
+  loop.sh                runs the scheduler and the orchestrator tick every few minutes
+  doctor.sh, stats.sh    setup check; per-model results from runs.csv
+  gates/                 check.sh (tests/lint/types/build), scope.sh, security.sh, UI check example
+  prompts/               one prompt per role
+  pi/models.json         Token Factory provider for pi
+  secrets.sh.example     copy to secrets.sh and add your key
+docs/                    architecture pages
+```

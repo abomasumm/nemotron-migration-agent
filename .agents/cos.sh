@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# cos.sh: cheap-model helper jobs (Muse Spark 1.3; DeepSeek if ALLOW_TRAINING=no).
+# cos.sh: cheap-model helper jobs (Nemotron Nano).
 #   cos.sh pack "goal"   context summary for planning     -> .agents/context.md (orchestrate.sh runs this)
 #   cos.sh map           refresh REPO_MAP.md
 #   cos.sh status        write STATUS.md
-#   cos.sh conflicts     re-queue merge conflicts (no model; loop.sh runs it every pass in cos mode)
-#   cos.sh triage        re-queue merge conflicts; with ORCHESTRATOR=cos also triage stuck tasks
-#   cos.sh daily         status + triage (run from cron once a day)
-# With ORCHESTRATOR=claude (the default) stuck tasks go to Claude via orchestrate.sh, not to Muse.
+#   cos.sh conflicts     re-queue merge conflicts (no model; orchestrate.sh tick runs it)
+#   cos.sh daily         status note (loop.sh runs it once a day)
+# Stuck tasks go to the orchestrator (orchestrate.sh), not to these jobs.
 set -uo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 P="$AG/prompts"
-cos_model() { goat_or "$(route_cos)" "$M_DS"; }
+cos_model() { route_cos; }
 
 cmd_pack() {
   [ -n "${1:-}" ] || { echo 'usage: cos.sh pack "milestone goal"'; exit 1; }
@@ -51,12 +50,6 @@ cmd_status() {
   echo "wrote .agents/STATUS.md"
 }
 
-replace_body() { # taskfile newbodyfile
-  local tmp; tmp=$(mktemp)
-  awk 'NR==1&&$0=="---"{f=1;print;next} f&&$0=="---"{print;exit} {print}' "$1" >"$tmp"
-  cat "$2" >>"$tmp"; mv "$tmp" "$1"
-}
-
 cmd_conflicts() {   # base moved underneath these: just redo them on the new base
   local f
   for f in $(task_files); do
@@ -66,39 +59,11 @@ cmd_conflicts() {   # base moved underneath these: just redo them on the new bas
   done
 }
 
-cmd_triage() {
-  local f id st pf out json action reason
-  command -v jq >/dev/null || { echo "triage needs jq"; exit 1; }
-  cmd_conflicts
-  for f in $(task_files); do
-    st=$(fm_get "$f" status); id=$(fm_get "$f" id)
-    [ "$st" = stuck ] || continue
-    [ "$ORCHESTRATOR" = claude ] && continue   # Claude triages these (orchestrate.sh)
-    if [ "$(fm_get "$f" triaged)" = yes ]; then fm_set "$f" status needs-you; tlog "$f" "stuck twice: needs you"; continue; fi
-    pf="$LOGS/$id.triage.prompt"; out="$LOGS/$id.triage.out"
-    { cat "$P/cos-triage.md"; echo; echo "# Task"; cat "$f"; echo; echo "# Last failure"
-      tail -n 80 "$TASKS/$id.fail.md" 2>/dev/null; } >"$pf"
-    run_model "$id" cos-triage "$(cos_model)" none "$pf" "$out" "$ROOT" 5m
-    json=$(json_block "$out"); action=$(echo "$json" | jq -r '.action // "human"' 2>/dev/null || echo human)
-    reason=$(echo "$json" | jq -r '.reason // ""' 2>/dev/null)
-    fm_set "$f" triaged yes; fm_set "$f" attempt 0
-    case "$action" in
-      rewrite) echo "$json" | jq -r '.brief' >"$LOGS/$id.newbody" && [ -s "$LOGS/$id.newbody" ] &&
-                 { replace_body "$f" "$LOGS/$id.newbody"; fm_set "$f" status queued; } || fm_set "$f" status needs-you ;;
-      requeue) echo "Hint from triage: $reason" >"$TASKS/$id.note.md"; fm_set "$f" status queued ;;
-      claude)  fm_set "$f" force claude; fm_set "$f" status queued ;;
-      *)       fm_set "$f" status needs-you ;;
-    esac
-    tlog "$f" "triage: $action. $reason"
-  done
-}
-
 case "${1:-}" in
   pack) cmd_pack "${2:-}" ;;
   map) cmd_map ;;
   status) cmd_status ;;
   conflicts) cmd_conflicts ;;
-  triage) cmd_triage ;;
-  daily) cmd_triage; cmd_status ;;
+  daily) cmd_conflicts; cmd_status ;;
   *) sed -n '2,9p' "$0" ;;
 esac

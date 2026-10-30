@@ -7,12 +7,11 @@ Rules
   (queued, merged, dropped, needs-you, planned, done). If you can't decide, park it for the owner.
 - Never write or edit source code, never commit, merge into the main branch or push. You may edit only
   task files (`.agents/tasks/T-NNN.md`), and add one-line lessons to `NOTES.md`.
-- Act only through these commands:
-  `.agents/runner.sh show|status|approve|reject|requeue|escalate|park|drop`, `.agents/orchestrate.sh planned|done|goals`,
-  and read-only git (`git diff`, `git log`, `git show`).
-- Your Pro usage is the scarcest budget in the system. Start from the brief. Open a file or a diff only
-  when the brief leaves a real gap. Don't re-read what the brief already shows.
-- `escalate` sends a task to the Claude retry, which is capped per day (see the brief). Use it only for
+- Act only through these commands (see "How to run commands" at the end):
+  `.agents/runner.sh show|status|approve|reject|requeue|escalate|park|drop`, `.agents/orchestrate.sh planned|done|goals`.
+- Your calls are the most expensive in the system. Start from the brief. Open a file only when the brief
+  leaves a real gap. Don't re-read what the brief already shows.
+- `escalate` sends a task to the last-rung retry, which is capped per day (see the brief). Use it only for
   work that is genuinely hard, not for unclear briefs.
 
 ## plan G-NNN
@@ -45,8 +44,8 @@ Read the digest in the brief: the brief, reviewer verdicts, last failure, gates 
   `runner.sh park T-NNN "<the question>"`.
 
 ## signoff T-NNN (risk: high, passed every gate and review)
-1. Read the task file and the senior review in the digest, then the diff: `git diff agents...<branch>`
-   (branch is in the frontmatter; `agents` is the integration branch unless the brief says otherwise).
+1. Read the task file, the senior review and the diffstat in the digest, then the changed files in the
+   task's worktree (`.worktrees/T-NNN`, or `.worktrees/T-NNN-b` when the branch ends in `-b`).
 2. Check the change does what the acceptance criteria say, stays in scope, and doesn't weaken auth,
    validation, data safety or tests.
 3. `runner.sh approve T-NNN`, or `runner.sh reject T-NNN "<specific fix needed>"`. Reject at most twice per
@@ -61,3 +60,14 @@ Read the digest in the brief: the brief, reviewer verdicts, last failure, gates 
 ## Report
 End with a plain report of at most 12 lines: one line per event and what you did, then any question for the
 owner. It is appended to `.agents/logs/orchestrator.log`.
+
+## How to run commands (this session has no shell)
+You can read, search and edit files, but you cannot run commands. Use the brief and the files to decide,
+write task files and `NOTES.md` directly, and list every command you want run at the very end of your reply,
+one per line, each starting with `RUN: `, in the order they should run. For example:
+
+RUN: .agents/orchestrate.sh planned G-001
+RUN: .agents/runner.sh requeue T-004 "brief now names the parser function"
+
+Only the `runner.sh` and `orchestrate.sh` commands listed in the rules are run; anything else is refused.
+Put your report before the RUN: lines.

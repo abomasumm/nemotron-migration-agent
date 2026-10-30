@@ -2,13 +2,13 @@
 # runner.sh: the agent pipeline.
 #   runner.sh run            pick up queued tasks (cron calls this every 5 min)
 #   runner.sh task T-012     run one task now, in the foreground
-#   runner.sh approve T-012  merge a needs-approval task (used by /signoff)
+#   runner.sh approve T-012  merge a needs-approval task (orchestrator sign-off, or you)
 #   runner.sh reject T-012 "why"   send it back with a note
 #   runner.sh batch          one review over all batch-review tasks (end of milestone)
 #   runner.sh status [--json]      table of all tasks (--json: one object per task, for the orchestrator)
 #   runner.sh show T-012     compact digest of one task: brief, log, verdicts, last failure, diffstat
 #   runner.sh requeue T-012 "hint"   run it again from the start, with a hint for the workers
-#   runner.sh escalate T-012 "hint"  run it again straight on the Claude retry (counts toward CLAUDE_DAILY_CAP)
+#   runner.sh escalate T-012 "hint"  run it again straight on the last rung, ESC_MODEL (counts toward ESC_DAILY_CAP)
 #   runner.sh park T-012 "why"       hand it to you (needs-you)
 #   runner.sh drop T-012 "why"       close it without merging (e.g. replaced by smaller tasks)
 set -uo pipefail
@@ -138,7 +138,7 @@ visual_qa() { # id wt taskfile -> prints verdict
   ( cd "$w" && SHOTS="$shots" bash "$AG/gates/ui.sh" ) >"$TASKS/$id.ui.log" 2>&1 || { echo FAIL; return; }
   { cat "$PROMPTS/uiqa.md"; echo; echo "# Brief"; cat "$f"; echo; echo "# Screenshots (read each file)"
     ls "$shots"/*.png 2>/dev/null; echo; echo "# UI check output"; tail -n 40 "$TASKS/$id.ui.log"; } >"$pf"
-  run_model "$id" uiqa "$(goat_or "$(route_uiqa)" "$M_VIS")" read "$pf" "$TASKS/$id.uiqa.json" "$w" 10m
+  run_model "$id" uiqa "$(route_uiqa)" read "$pf" "$TASKS/$id.uiqa.json" "$w" 10m
   [ $? -eq 75 ] && { touch "$TASKS/$id.paused"; echo PAUSED; return; }
   verdict "$TASKS/$id.uiqa.json"
 }
@@ -150,7 +150,7 @@ verify() { # id wt taskfile workermodel gatelog -> 0 pass, 1 fail (writes fail n
   if { [ "$type" = bulk ] && [ "$risk" != high ]; } || { [ "$type" = patch ] && [ "$risk" != high ] && [ "$(diff_lines "$w")" -le "$TRIVIAL_LINES" ]; }; then
     fm_set "$f" review batch
   else
-    t1=$(goat_or "$(route_t1 "$wm")" "$M_DS")
+    t1=$(route_t1 "$wm")
     v1=$(review "$id" "$w" "$f" "$t1" review1 "$gl")
     [ "$v1" = PAUSED ] && { wait; return 2; }
     [ "$v1" = FAIL ] && { cp "$TASKS/$id.review1.json" "$TASKS/$id.fail.md"; wait; return 1; }
@@ -160,8 +160,7 @@ verify() { # id wt taskfile workermodel gatelog -> 0 pass, 1 fail (writes fail n
   [ "$vq" = PAUSED ] && return 2
   [ "$vq" = FAIL ] && { cat "$TASKS/$id.uiqa.json" "$TASKS/$id.ui.log" >"$TASKS/$id.fail.md" 2>/dev/null; return 1; }
   if [ "$risk" = high ] || { [ "$type" = long ] && [ "$T2_ON_LONG" = yes ]; } || [ "$need2" = 1 ]; then
-    t2=$(goat_or "$(route_t2)" "$(route_t2_alt)")
-    [ "$(family "$t2")" = "$(family "$wm")" ] && t2=$(goat_or "$(route_t2_peer)" "$(route_t2_alt)")
+    t2=$(route_t2); [ "$t2" = "$wm" ] && t2=$(route_t2_alt)
     local v2; v2=$(review "$id" "$w" "$f" "$t2" review2 "$gl")
     [ "$v2" = PAUSED ] && return 2
     [ "$v2" = PASS ] || { cp "$TASKS/$id.review2.json" "$TASKS/$id.fail.md"; return 1; }
@@ -174,14 +173,14 @@ judge() { # id taskfile wtA wtB -> prints A or B
   { cat "$PROMPTS/judge.md"; echo; echo "# Brief"; cat "$2"
     echo "# Candidate A"; git -C "$3" diff "$INTEGRATION_BRANCH"...HEAD | head -c 40000
     echo "# Candidate B"; git -C "$4" diff "$INTEGRATION_BRANCH"...HEAD | head -c 40000; } >"$pf"
-  run_model "$1" judge "$(goat_or "$(route_t2)" "$(route_t2_alt)")" none "$pf" "$TASKS/$1.judge.json" "$3" 5m
+  run_model "$1" judge "$(route_judge)" none "$pf" "$TASKS/$1.judge.json" "$3" 5m
   grep -o '"pick"[[:space:]]*:[[:space:]]*"[AB]"' "$TASKS/$1.judge.json" | grep -o '[AB]"$' | tr -d '"' | head -1
 }
 
 finish() { # id taskfile branch
   local id=$1 f=$2 br=$3
   if [ "$(task_risk "$f")" = high ]; then
-    fm_set "$f" status needs-approval; fm_set "$f" branch "$br"; tlog "$f" "waiting for /signoff ($br)"; return
+    fm_set "$f" status needs-approval; fm_set "$f" branch "$br"; tlog "$f" "waiting for sign-off ($br)"; return
   fi
   merge_branch "$id" "$f" "$br"
 }
@@ -195,14 +194,14 @@ merge_branch() {
     drop_tree "$id-b" "task/$id-b"; drop_tree "$id-tests" "task/$id-tests"; drop_tree "$id" "task/$id"
   else
     git -C "$INT_WT" merge --abort 2>/dev/null; unlock integration
-    fm_set "$f" status conflict; tlog "$f" "merge conflict; chief of staff will re-queue"
+    fm_set "$f" status conflict; tlog "$f" "merge conflict; re-queued on the next tick"
   fi
 }
 
-pause_task() { # taskfile id: every model in the chain was full; try again in 30 minutes
+pause_task() { # taskfile id: every model in the chain was rate-limited; try again in PAUSE_MINUTES
   rm -f "$TASKS/$2.paused"
   fm_set "$1" not_before "$(( $(date +%s) + PAUSE_MINUTES * 60 ))"; fm_set "$1" status queued
-  tlog "$1" "all pools full; paused $PAUSE_MINUTES min"
+  tlog "$1" "every model rate-limited; paused $PAUSE_MINUTES min"
 }
 
 process_task() {
@@ -217,7 +216,7 @@ process_task() {
   worker=$(route_worker "$type")
   local note="$TASKS/$id.note.md"
 
-  if [ "$(fm_get "$f" force)" = claude ]; then rungs="$CLAUDE_ESC"; else
+  if [ "$(fm_get "$f" force)" = escalate ]; then rungs="$ESC_MODEL"; else
     # ---- first rung: tests || worker(s), in parallel ----
     [ "$logic" = yes ] && { local tw; tw=$(fresh_tree "$id-tests" "task/$id-tests"); write_tests "$id" "$f" "$tw" "$worker" & pids+=($!); }
     attempt_worker "$id" "$f" "$w" "$worker" "$note" worker & pids+=($!)
@@ -267,10 +266,9 @@ process_task() {
   # ---- retry ladder ----
   for m in $rungs; do
     n=$((n+1))
-    if [ "$m" = "$CLAUDE_ESC" ] && ! claude_ok; then
-      fm_set "$f" status needs-claude; tlog "$f" "Claude daily cap reached; resumes tomorrow"; return
+    if [ "$m" = "$ESC_MODEL" ] && ! esc_ok; then
+      fm_set "$f" status needs-escalation; tlog "$f" "ESC_DAILY_CAP reached; resumes tomorrow"; return
     fi
-    is_goat "$m" && ! goat_ok && { tlog "$f" "skip $m (GOAT daily cap)"; continue; }
     fm_set "$f" status building; fm_set "$f" attempt "$n"
     w=$(fresh_tree "$id" "task/$id"); add_tests "$w" "$id"
     attempt_worker "$id" "$f" "$w" "$m" "$TASKS/$id.fail.md" "retry$n"
@@ -299,8 +297,8 @@ cmd_run() {
   local f st id running=0 busy="" m dep ok nb tp
   for f in $(task_files); do
     st=$(fm_get "$f" status)
-    if [ "$st" = needs-claude ] && claude_ok; then   # new day, cap reset: resume straight at Claude
-      fm_set "$f" force claude; fm_set "$f" status queued; tlog "$f" "resuming with Claude"; continue; fi
+    if [ "$st" = needs-escalation ] && esc_ok; then   # new day, cap reset: resume straight at the last rung
+      fm_set "$f" force escalate; fm_set "$f" status queued; tlog "$f" "resuming on $ESC_MODEL"; continue; fi
     case "$st" in claimed|building|gating|reviewing)
       if pid_alive "$(fm_get "$f" pid)"; then running=$((running+1)); busy="$busy $(fm_get "$f" model)"
       else fm_set "$f" status queued; tlog "$f" "recovered after crash"; fi ;;
@@ -311,7 +309,6 @@ cmd_run() {
     [ "$(fm_get "$f" status)" = queued ] || continue
     nb=$(fm_get "$f" not_before); [ -n "$nb" ] && [ "$(date +%s)" -lt "$nb" ] && continue
     id=$(fm_get "$f" id)
-    case "$(fm_get "$f" type)" in bulk|long) [ "$OFFPEAK_ONLY" = yes ] && ! in_offpeak && continue ;; esac
     ok=1; for dep in $(fm_get "$f" after | tr ',' ' '); do
       [ "$(fm_get "$TASKS/$dep.md" status 2>/dev/null)" = merged ] || ok=0; done
     [ "$ok" = 1 ] || continue
@@ -392,8 +389,8 @@ cmd_requeue() { local f="$TASKS/$1.md"; need_task "$1"
 cmd_escalate() { local f="$TASKS/$1.md"; need_task "$1"
   [ -n "${2:-}" ] && echo "Hint from the orchestrator: $2" >"$TASKS/$1.note.md"
   [ -s "$TASKS/$1.note.md" ] && cat "$TASKS/$1.note.md" >>"$TASKS/$1.fail.md"
-  fm_set "$f" force claude; fm_set "$f" not_before ""; fm_set "$f" status queued
-  tlog "$f" "orchestrator: escalated to $CLAUDE_ESC. ${2:-}"; echo "$1 queued for $CLAUDE_ESC"; }
+  fm_set "$f" force escalate; fm_set "$f" not_before ""; fm_set "$f" status queued
+  tlog "$f" "orchestrator: escalated to $ESC_MODEL. ${2:-}"; echo "$1 queued for $ESC_MODEL"; }
 cmd_park() { local f="$TASKS/$1.md"; need_task "$1"
   fm_set "$f" status needs-you; tlog "$f" "orchestrator: needs you. ${2:-}"; echo "$1 parked for you"; }
 cmd_drop() { local f="$TASKS/$1.md"; need_task "$1"
@@ -406,7 +403,7 @@ case "${1:-run}" in
   approve) ensure_integration; f="$TASKS/$2.md"
     [ "$(fm_get "$f" status)" = needs-approval ] || { echo "$2 is not waiting for approval"; exit 1; }
     merge_branch "$2" "$f" "$(fm_get "$f" branch)" ;;
-  reject) f="$TASKS/$2.md"; echo "Sign-off (Claude) rejected the last attempt: ${3:-no reason given}" >"$TASKS/$2.note.md"
+  reject) f="$TASKS/$2.md"; echo "Sign-off rejected the last attempt: ${3:-no reason given}" >"$TASKS/$2.note.md"
     fm_set "$f" status queued; tlog "$f" "rejected at signoff" ;;
   batch) cmd_batch ;;
   status) cmd_status "${2:-}" ;;
