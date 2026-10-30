@@ -3,123 +3,295 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Migration Agent</title>
+<title>Morphameleon</title>
 <style>
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&display=swap");
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f3f0; --border: #e4e3de;
-  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7b7a75; --accent: #2a78d6; --accent-ink: #ffffff;
-  --series-1: #2a78d6; --series-2: #eb6834;
-  --good: #0ca30c; --good-ink: #006300; --serious: #ec835a; --critical: #d03b3b; --crit-ink: #b42323;
-  --add-bg: #e6f4e6; --del-bg: #fbe9e9;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
-    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
-    --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f; --crit-ink: #ff8a8a;
-    --add-bg: #13301a; --del-bg: #3a1717;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
-  --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
-  --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f; --crit-ink: #ff8a8a;
-  --add-bg: #13301a; --del-bg: #3a1717;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --page: #edf5f1;
+  --surface: #fbf9f4;
+  --surface-2: #e4f1ec;
+  --field: #ffffff;
+  --border: #d3e0db;
+  --border-strong: #a9bfb8;
+  --ink: #12231f;
+  --ink-2: #3f5955;
+  --ink-3: #5a6f6a;
+  --accent: #e0480f;
+  --accent-text: #b8390a;
+  --accent-soft: #ffe3d3;
+  --good: #23804f;
+  --good-ink: #17603a;
+  --good-soft: #dcf1e2;
+  --warn: #9a5a00;
+  --warn-soft: #fff1d1;
+  --critical: #c23a3f;
+  --crit-ink: #9e2830;
+  --crit-soft: #fbe2e2;
+  --add-bg: #d9f0df;
+  --del-bg: #f7d7d7;
+  --radius: 16px;
+  --radius-sm: 10px;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
-a { color: var(--accent); }
-main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 72px; }
-.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 18px; }
-.brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); }
-.brand small { font-weight: 500; color: var(--ink-3); margin-left: 6px; }
-h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 0 0 12px; font-weight: 600; }
-p { margin: 0 0 10px; }
-.sub { color: var(--ink-2); } .muted { color: var(--ink-3); }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-.grid { display: grid; gap: 16px; }
-.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
-@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
-.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 18px; }
-.step { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 5px 12px; text-decoration: none; font-size: 13px; }
-.step.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
-.step b { color: var(--ink-3); margin-right: 4px; font-weight: 600; }
-.step.ok b { color: var(--good-ink); }
-label { display: block; font-weight: 550; margin: 12px 0 4px; }
-input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-textarea { min-height: 64px; resize: vertical; }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.row > input { flex: 1; min-width: 220px; }
-button { font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-button.danger { color: var(--crit-ink); }
-button:disabled { opacity: .5; cursor: default; }
-button.link { background: none; border: 0; padding: 0; color: var(--accent); }
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { font-size: 12px; color: var(--ink-2); font-weight: 600; }
-tr:last-child td { border-bottom: 0; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--accent); color: #fff; }
+a { color: var(--accent-text); font-weight: 600; text-underline-offset: 3px; }
+main { margin: 0; padding: 20px clamp(16px, 2.5vw, 40px) 72px; }
+p { margin: 0 0 12px; }
+h1 { font-size: 40px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 650; margin: 0 0 10px; }
+h2 { font-size: 18px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 14px; }
+.section-title { font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
+.eyebrow { color: var(--accent-text); font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.sub { color: var(--ink-2); font-size: 16px; max-width: 68ch; }
+.muted { color: var(--ink-3); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+.empty { color: var(--ink-3); padding: 12px 0; }
 .scroll { overflow-x: auto; }
-.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
-.s-good .dot { background: var(--good); } .s-good { color: var(--good-ink); }
-.s-work .dot { background: var(--series-1); }
-.s-warn .dot { background: var(--serious); }
-.s-crit .dot { background: var(--critical); } .s-crit { color: var(--crit-ink); }
-.note { border-left: 3px solid var(--serious); background: var(--surface-2); padding: 8px 12px; border-radius: 6px; margin: 10px 0; }
-.note.bad { border-color: var(--critical); }
-.note.good { border-color: var(--good); }
-pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-.log { max-height: 260px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 10px; }
-.tiles { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-.tile { margin: 0; } .tile .num { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.tile .lbl { color: var(--ink-2); font-size: 13px; }
-.bar { height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
-.bar > span { display: block; height: 100%; background: var(--good); border-radius: 3px; }
-.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.col { background: var(--surface-2); border-radius: 10px; padding: 10px; min-height: 100px; }
-.col h3 { font-size: 12px; margin: 2px 4px 10px; color: var(--ink-2); display: flex; justify-content: space-between; }
-.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; cursor: pointer; width: 100%; text-align: left; color: inherit; font: inherit; }
-.tcard:hover, .tcard:focus-visible { border-color: var(--accent); outline: none; }
-.tcard.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.tcard .t { font-weight: 550; margin: 2px 0 6px; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.gate { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
-.gate.pass { background: var(--good); } .gate.fail { background: var(--critical); }
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0; }
-.kv dt { color: var(--ink-2); } .kv dd { margin: 0; }
-.diff { max-height: 460px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 8px 0; }
-.diff div { padding: 0 12px; white-space: pre; }
-.diff .add { background: var(--add-bg); } .diff .del { background: var(--del-bg); } .diff .hunk { color: var(--series-1); } .diff .file { font-weight: 700; padding-top: 8px; }
-.chart .crow { display: grid; grid-template-columns: minmax(120px, 190px) 1fr 44px; gap: 10px; align-items: center; padding: 4px 0; }
-.chart .name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chart .fill { height: 14px; border-radius: 0 4px 4px 0; min-width: 2px; }
-.chart .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12.5px; }
-.legend { display: flex; gap: 16px; margin-bottom: 10px; font-size: 12.5px; color: var(--ink-2); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); padding: 6px 9px; border-radius: 6px; font-size: 12px; display: none; z-index: 10; }
-.feed { max-height: 320px; overflow: auto; } .feed div { padding: 4px 0; border-bottom: 1px solid var(--border); }
-.empty { color: var(--ink-3); padding: 12px 4px; }
-.qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-@media (max-width: 760px) { .qgrid { grid-template-columns: 1fr; } }
+
+/* Top bar: compact brand on the left, actions on the right */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 28px; padding: 4px 8px 4px 12px; background: var(--surface); border-radius: 999px; box-shadow: 0 6px 20px rgba(18, 35, 31, 0.07); }
+.brand { display: block; line-height: 0; color: var(--ink); text-decoration: none; }
+.brand-logo { display: block; height: 76px; width: auto; }
+.top > .row { justify-content: flex-end; min-width: 0; }
+.helpbtn { background: transparent; border: 1px solid transparent; border-radius: 999px; color: var(--ink-2); min-height: 40px; padding: 0 14px; }
+.helpbtn:hover { background: var(--surface-2); border-color: transparent; }
+.top .badge { height: 40px; padding: 0 14px; font-size: 15px; font-weight: 600; border-radius: 10px; border-color: var(--border-strong); }
+.top .badge .status-eye { width: 18px; }
+
+/* Cards and layout */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 20px; }
+.grid { display: grid; gap: 20px; }
+.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row > input { flex: 1; min-width: 240px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+details.advanced { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
+details summary { cursor: pointer; color: var(--ink-2); font-weight: 600; }
+details summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.card.advanced { padding-top: 20px; }
+
+/* Home hero */
+.hero { padding: clamp(28px, 4vw, 52px); }
+.hero h1 { font-size: clamp(34px, 4.4vw, 50px); }
+.home-hero-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr); align-items: center; gap: clamp(24px, 4vw, 56px); }
+.hero-copy .sub { margin-bottom: 24px; }
+.hero-copy label { margin-top: 0; }
+.chameleon-art { display: block; width: min(100%, 420px); height: auto; max-height: 440px; object-fit: contain; justify-self: end; }
+
+/* Forms */
+label { display: block; font-size: 15px; font-weight: 600; margin: 16px 0 6px; }
+input, select, textarea { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--field); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 11px 14px; }
+textarea { min-height: 72px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .check { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; }
-.check input { width: auto; margin-top: 3px; }
-.roles .rrow { display: grid; grid-template-columns: minmax(160px, 1.1fr) minmax(200px, 1.5fr) 110px 100px 110px; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.roles .rrow.head { font-size: 12px; color: var(--ink-2); font-weight: 600; padding-top: 0; }
-@media (max-width: 760px) { .roles .rrow { grid-template-columns: 1fr 1fr; } .roles .rrow.head { display: none; } .roles .rrow > div:first-child { grid-column: 1 / -1; } }
-.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--page); padding: 9px 14px; border-radius: 8px; display: none; max-width: 90vw; z-index: 20; }
+.check input { width: auto; margin-top: 4px; }
+
+/* Buttons */
+button { font: inherit; font-size: 15px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--field); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--ink-2); }
+button.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+button.primary:hover { background: #22403a; border-color: #22403a; }
+button.danger { color: var(--crit-ink); }
+button.link { background: none; border: 0; min-height: 0; padding: 0; color: var(--accent-text); }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { button.primary:hover { transform: translateY(-1px); } }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 15px; }
+th { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+
+/* Status */
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--field); color: var(--ink-2); white-space: nowrap; }
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.s-good { color: var(--good-ink); } .s-good .dot { background: var(--good); }
+.s-work { color: var(--ink-2); } .s-work .dot { background: #1e7fa6; }
+.s-warn { color: var(--warn); } .s-warn .dot { background: #e88a1a; }
+.s-crit { color: var(--crit-ink); } .s-crit .dot { background: var(--critical); }
+.status-eye { position: relative; display: inline-block; width: 16px; height: 9px; border: 1px solid currentColor; border-radius: 50%; overflow: hidden; }
+.status-eye::after { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: currentColor; left: 5px; top: 2px; }
+.status-eye.running { color: var(--accent); }
+.status-eye.running::after { animation: eye-scan 2.4s ease-in-out infinite; }
+.status-eye.paused { height: 7px; border-width: 0 0 1px; border-radius: 0; }
+.status-eye.paused::after { display: none; }
+@keyframes eye-scan { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+.gate { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #fff; }
+.gate.pass { background: var(--good); } .gate.fail { background: var(--critical); }
+
+/* Notes */
+.note { font-size: 15px; background: var(--warn-soft); border: 1px solid #ecd39a; border-radius: var(--radius-sm); padding: 14px 16px; margin: 14px 0; }
+.note.bad { background: var(--crit-soft); border-color: #efb7b7; }
+.note.good { background: var(--good-soft); border-color: #b3dcc0; }
+.note b { font-weight: 650; }
+
+/* Code and logs */
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 14px; }
+.log { max-height: 280px; overflow: auto; background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px; }
+.diff { max-height: 480px; overflow: auto; background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 0; font-size: 14px; }
+.diff div { padding: 0 12px; white-space: pre; }
+.diff .add { background: var(--add-bg); } .diff .del { background: var(--del-bg); } .diff .hunk { color: #1e7fa6; } .diff .file { font-weight: 700; padding-top: 8px; }
+.feed { max-height: 320px; overflow: auto; font-size: 14px; }
+.feed div { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 16px 0; font-size: 15px; }
+.kv dt { color: var(--ink-3); } .kv dd { margin: 0; }
+
+/* Progress stepper: one track, one fill, no decoration */
+.steps { --progress: 0%; position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 40px; }
+.steps::before, .steps::after { content: ""; position: absolute; top: 15px; left: 10%; height: 2px; border-radius: 2px; }
+.steps::before { width: 80%; background: var(--border); }
+.steps::after { width: var(--progress); background: var(--accent); transition: width 0.35s ease; }
+.step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 6px; text-align: center; text-decoration: none; color: var(--ink-3); font-size: 15px; font-weight: 600; }
+.step b { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 8px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--page); color: var(--ink-3); font-size: 14px; font-weight: 700; }
+.step.on { color: var(--ink); }
+.step.on b { border-color: var(--accent); background: var(--accent); color: #fff; }
+.step.ok b { border-color: var(--good); background: var(--good); color: #fff; }
+.step small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-3); }
+
+/* Breadcrumb and project header */
+.breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ink-3); font-size: 14px; margin-bottom: 14px; }
+.breadcrumb a { text-decoration: none; color: var(--ink-2); }
+.breadcrumb b { color: var(--ink); font-weight: 600; }
+.project-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 28px; }
+.project-head h1 { font-size: clamp(32px, 4vw, 40px); }
+.project-meta { margin-top: 8px; }
+.project-meta summary { color: var(--ink-3); font-size: 14px; font-weight: 500; }
+.project-path { margin-top: 8px; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.project-switcher { position: relative; }
+.project-switcher > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--field); font-size: 15px; font-weight: 600; }
+.project-switcher > summary::-webkit-details-marker { display: none; }
+.project-switcher > summary::after { content: ""; width: 7px; height: 7px; margin: 0 2px 3px 4px; border-right: 2px solid var(--ink-3); border-bottom: 2px solid var(--ink-3); transform: rotate(45deg); }
+.project-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 280px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 18px 50px rgba(18, 35, 31, 0.18); z-index: 40; }
+.project-menu-label { padding: 6px 10px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.project-option { display: block; padding: 9px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-weight: 500; }
+.project-option:hover, .project-option:focus-visible { background: var(--surface-2); }
+.project-option.current { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.project-menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px; }
+
+/* Projects list (home) */
+.project-grid { display: block; margin-top: 20px; }
+.project-tile { position: relative; display: grid; gap: 4px; padding: 18px 44px 18px 16px; margin: 0 -16px; border-bottom: 1px solid var(--border); border-radius: 10px; color: var(--ink); text-decoration: none; }
+.project-tile:first-child { border-top: 1px solid var(--border); }
+.project-tile b { font-size: 18px; font-weight: 600; }
+.project-tile .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.project-tile .badge { justify-self: start; margin-top: 6px; }
+.project-tile::after { content: "→"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 20px; color: var(--accent-text); }
+.project-tile:hover, .project-tile:focus-visible { background: var(--surface-2); }
+
+/* Summary, presets, providers, preflight, timeline */
+.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.summary-item { padding: 18px; background: var(--page); border-radius: var(--radius-sm); }
+.summary-item b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+.summary-item span { color: var(--ink-3); font-size: 14px; }
+.provider-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.provider-card:first-of-type { margin-top: 16px; }
+.provider-id { display: flex; gap: 14px; align-items: center; }
+.provider-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-weight: 700; font-size: 18px; }
+.preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.preset { display: block; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field); cursor: pointer; }
+.preset:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.preset input { width: auto; margin-right: 8px; accent-color: var(--accent); }
+.preset b { font-size: 16px; }
+.preset p { font-size: 15px; color: var(--ink-2); margin: 8px 0 0; }
+.preflight { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin: 20px 0; }
+.preflight .check { padding: 16px 0; border-bottom: 1px solid var(--border); align-items: center; }
+.timeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+.timeline div { padding: 10px 0; border-top: 3px solid var(--border); color: var(--ink-3); font-size: 14px; font-weight: 500; }
+.timeline .done { border-color: var(--good); color: var(--good-ink); }
+.timeline .active { border-color: var(--accent); color: var(--accent-text); font-weight: 650; }
+.empty-state { text-align: center; padding: 40px 20px; }
+.empty-state .empty-icon { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-text); font-size: 22px; }
+.empty-state .sub { margin: 8px auto 16px; }
+.roles .rrow { display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(200px, 1.5fr) 120px 100px 120px; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+.roles .rrow.head { font-size: 13px; color: var(--ink-3); font-weight: 600; padding-top: 0; }
+
+/* Tiles and boards */
+.tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 20px; }
+.tile { margin: 0; }
+.tile .num { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .lbl { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
+.bar { height: 8px; background: var(--surface-2); border-radius: 4px; margin-top: 14px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--good); border-radius: 4px; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.col { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px; min-height: 120px; }
+.col h3 { font-size: 15px; font-weight: 600; margin: 2px 4px 10px; color: var(--ink-2); display: flex; justify-content: space-between; }
+.tcard { display: block; width: 100%; text-align: left; color: inherit; font: inherit; font-size: 15px; background: var(--field); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; cursor: pointer; min-height: 0; }
+.tcard:hover, .tcard:focus-visible { border-color: var(--accent); }
+.tcard.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tcard .t { font-weight: 600; margin: 6px 0 8px; }
+.tcard .mono { font-size: 13px; }
+.tcard .badge { font-size: 12px; }
+.chart .crow { display: grid; grid-template-columns: minmax(120px, 200px) 1fr 48px; gap: 12px; align-items: center; padding: 6px 0; }
+.chart .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart .fill { height: 14px; border-radius: 0 6px 6px 0; min-width: 2px; }
+.chart .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; font-size: 14px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Overlays */
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); padding: 8px 10px; border-radius: 8px; font-size: 14px; display: none; z-index: 10; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--page); padding: 12px 18px; border-radius: var(--radius-sm); display: none; max-width: 90vw; z-index: 20; font-size: 15px; }
+.tail-loader { display: inline-block; width: 40px; height: 40px; color: var(--accent); }
+.tail-loader path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 90; animation: draw-tail 1.8s ease-in-out infinite; }
+@keyframes draw-tail { 0% { stroke-dashoffset: 90; opacity: 0.35; } 55%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+.tour-shade { position: fixed; inset: 0; background: transparent; z-index: 80; display: none; }
+.tour-card { position: fixed; right: 24px; bottom: 24px; z-index: 82; width: min(380px, calc(100vw - 28px)); background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: 0 24px 70px rgba(18, 35, 31, 0.28); display: none; }
+.tour-card h3 { margin: 4px 0 8px; font-size: 22px; font-weight: 600; }
+.tour-card p { color: var(--ink-2); }
+.tour-spot { position: fixed; z-index: 81; display: none; border-radius: 12px; box-shadow: 0 0 0 2px var(--accent), 0 0 0 9999px rgba(18, 35, 31, 0.6); pointer-events: none; }
+.tour-progress { font-size: 14px; color: var(--accent-text); font-weight: 600; }
+.tour-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+.tour-welcome { position: fixed; inset: 0; display: none; place-items: center; background: rgba(18, 35, 31, 0.72); z-index: 90; padding: 18px; }
+.tour-welcome .card { width: min(520px, 100%); padding: 36px; margin: 0; box-shadow: 0 24px 70px rgba(18, 35, 31, 0.28); }
+.tour-welcome h2 { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; }
+.tour-welcome .tour-orb { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-soft); display: grid; place-items: center; color: var(--accent-text); font-size: 22px; margin-bottom: 20px; }
+
+@media (max-width: 860px) {
+  .two { grid-template-columns: 1fr; }
+  .home-hero-grid { grid-template-columns: 1fr; }
+  .chameleon-art { justify-self: center; max-height: 280px; order: -1; }
+  .summary-grid, .preset-grid, .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  main { padding: 16px 16px 64px; }
+  h1 { font-size: 30px; }
+  .section-title { font-size: 22px; }
+  .card { padding: 20px; }
+  .top { margin-bottom: 24px; }
+  .brand-logo { height: 60px; }
+  .top { padding-left: 12px; }
+  .qgrid, .preflight, .preset-grid, .summary-grid, .timeline { grid-template-columns: 1fr; }
+  .roles .rrow { grid-template-columns: 1fr 1fr; }
+  .roles .rrow.head { display: none; }
+  .roles .rrow > div:first-child { grid-column: 1 / -1; }
+  .steps { grid-template-columns: 1fr; gap: 4px; margin-bottom: 28px; }
+  .steps::before, .steps::after { display: none; }
+  .step { flex-direction: row; align-items: center; text-align: left; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .step b { margin: 0; flex: none; }
+  .step small { display: none; }
+  .project-head { flex-direction: column; }
+  .provider-card { align-items: flex-start; flex-direction: column; }
+  .project-path { max-width: 100%; }
+  .tour-card { left: 14px; right: 14px; bottom: 14px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
 <main id="app"></main>
 <div class="tip" id="tip" role="tooltip"></div>
 <div class="toast" id="toast" role="status"></div>
+<div class="tour-shade" id="tourShade"></div>
+<div class="tour-spot" id="tourSpot"></div>
+<aside class="tour-card" id="tourCard" role="dialog" aria-live="polite"></aside>
+<div class="tour-welcome" id="tourWelcome" role="dialog" aria-modal="true" aria-labelledby="tourWelcomeTitle">
+  <div class="card"><div class="tour-orb">✦</div><h2 id="tourWelcomeTitle">Migrate with confidence</h2><p class="sub">A short tour from adding a repo to monitoring the migration.</p><div class="row" style="margin-top:20px"><button class="primary" id="startTour">Start the tour</button><button id="skipWelcome">Explore on my own</button></div></div>
+</div>
 <script>
 const TOKEN = "__APP_TOKEN__";
 const $ = (id) => document.getElementById(id);
@@ -139,7 +311,7 @@ async function waitJob(job, logEl) {
     await new Promise((r) => setTimeout(r, 1000));
   }
 }
-let timer = null;
+let timer = null, tourIndex = -1, tourSteps = [], tourPid = null, tourWaiting = null, mountedPid = null;
 function route() {
   clearTimeout(timer);
   const [_, a, pid, step] = location.hash.split("/");
@@ -147,26 +319,83 @@ function route() {
   return home();
 }
 window.addEventListener("hashchange", route);
-const loopBadge = (on) => on ? '<span class="badge s-work"><span class="dot"></span>loop running</span>' : '<span class="badge"><span class="dot"></span>loop stopped</span>';
-const header = (extra = "") => `<div class="top"><a class="brand" href="#/">Migration Agent<small>on Nebius Token Factory</small></a>${extra}</div>`;
+const loopBadge = (on) => on ? '<span class="badge s-work"><span class="status-eye running"></span>Migration running</span>' : '<span class="badge"><span class="status-eye paused"></span>Migration paused</span>';
+const brand = `<img class="brand-logo" src="/assets/morphameleon-logo.png" alt="Morphameleon">`;
+const header = (extra = "") => `<div class="top"><a class="brand" href="#/" title="Back to all projects" aria-label="Morphameleon — back to all projects">${brand}</a><div class="row">${extra}<button class="helpbtn" onclick="startProductTour()" aria-label="Replay product tour">? Product tour</button></div></div>`;
+const tailLoader = '<svg class="tail-loader" viewBox="0 0 44 44" aria-hidden="true"><path d="M7 10c17-7 30 1 28 13-2 10-15 15-22 9-5-4-2-11 4-11 5 0 7 5 4 8"/></svg>';
+const TOUR = [
+  { sel: "#src", title: "Add a repository", text: "Paste a GitHub URL or a local path. Your code is not changed." },
+  { sel: ".project-tile, #projectsCard .empty", title: "Your projects", text: "Each repository you add appears here. Open one to continue." },
+  { step: "providers", sel: ".provider-card, .empty-state", title: "Connect", text: "Add a model key. It stays on this machine." },
+  { step: "questions", sel: "#prep, .summary-item", title: "Plan", text: "The agent checks the repo and its tests. Then you define what success means." },
+  { step: "models", sel: ".preset", title: "Configure", text: "Choose a review strategy. Reviewers always come from a different model family." },
+  { step: "start", sel: ".preflight .check", title: "Launch", text: "All checks must pass. Work goes to a separate branch, so main stays untouched." },
+  { step: "dashboard", sel: ".hero .section-title", title: "Monitor", text: "See overall progress and anything that needs your decision." },
+  { step: "dashboard", sel: "section.grid.two h2", title: "Modules and tasks", text: "Modules show what has migrated. Click a task to see its diff, checks and verdicts." }
+];
+let tourEl = null;
+// The highlight is one fixed frame that moves between targets, so it is never removed mid-switch.
+function placeSpot(el){
+  const s = $("tourSpot");
+  if(!el){ s.style.display = "none"; tourEl = null; return; }
+  tourEl = el;
+  if(!el.isConnected) return;
+  const r = el.getBoundingClientRect(), p = 6;
+  s.style.display = "block";
+  s.style.left = (r.left - p) + "px"; s.style.top = (r.top - p) + "px";
+  s.style.width = (r.width + 2 * p) + "px"; s.style.height = (r.height + 2 * p) + "px";
+}
+function closeTour(done=true){cancelAnimationFrame(spotRaf);spotRaf=null;$("tourShade").style.display="none";$("tourCard").style.display="none";$("tourSpot").style.display="none";tourEl=null;tourIndex=-1;tourWaiting=null;if(done)localStorage.setItem("nma-tour-done","1");}
+async function findEl(sel){for(let n=0;n<100;n++){const el=[...document.querySelectorAll(sel)].find((e)=>!e.closest("[data-stale]"));if(el)return el;await new Promise((r)=>setTimeout(r,30));}return null;}
+// The tour moves between pages: a step on another page changes the hash, then resumes once that page has rendered.
+async function showTourStep(i){
+  const step = tourSteps[i];
+  if(!step) return closeTour();
+  tourIndex = i;
+  const hash = step.step ? `#/p/${tourPid}/${step.step}` : "#/";
+  if(location.hash !== hash){ document.querySelectorAll("#body *").forEach((e)=>e.dataset.stale=""); tourWaiting = i; location.hash = hash; return; }
+  tourWaiting = null;
+  const el = await findEl(step.sel);
+  if(el){ const r = el.getBoundingClientRect(); if(r.top < 80 || r.bottom > innerHeight - 80) el.scrollIntoView({block:"center", behavior:"smooth"}); }
+  placeSpot(el);
+  if(!spotRaf) trackSpot();
+  const c=$("tourCard");c.innerHTML=`<div class="tour-progress">${i+1} of ${tourSteps.length}</div><h3>${step.title}</h3><p>${step.text}</p><div class="tour-actions"><button onclick="closeTour()">Skip tour</button><div class="row">${i?'<button onclick="showTourStep(tourIndex-1)">Back</button>':''}<button class="primary" onclick="${i===tourSteps.length-1?'closeTour()':'showTourStep(tourIndex+1)'}">${i===tourSteps.length-1?'Finish':'Next'}</button></div></div>`;c.style.display="block";$("tourShade").style.display="block";
+}
+// Re-measure every frame so the highlight follows the target through scrolling, resizing and late layout changes.
+let spotRaf = null;
+function trackSpot(){ if(tourIndex < 0){ spotRaf = null; return; } placeSpot(tourEl); spotRaf = requestAnimationFrame(trackSpot); }
+function tourRendered(){ if(tourWaiting !== null){ const i = tourWaiting; tourWaiting = null; showTourStep(i); } }
+async function startProductTour(){
+  const projects = await api("projects").catch(() => []);
+  tourPid = projects[0]?.id || null;
+  $("tourWelcome").style.display="none";
+  localStorage.setItem("nma-tour-done","1");
+  tourSteps = TOUR.filter((s) => !s.step || tourPid);
+  showTourStep(0);
+}
+function offerTour(){if(!localStorage.getItem("nma-tour-done"))$("tourWelcome").style.display="grid"}
+$("startTour").onclick=()=>{$("tourWelcome").style.display="none";startProductTour()};
+$("skipWelcome").onclick=()=>{$("tourWelcome").style.display="none";localStorage.setItem("nma-tour-done","1")};
 
 // ---------- home ----------
 async function home() {
+  mountedPid = null;
   const [projects, health] = await Promise.all([api("projects").catch(() => []), api("health").catch(() => ({ missing: [] }))]);
   const req = health.missing.filter((t) => t.required), opt = health.missing.filter((t) => !t.required);
   $("app").innerHTML = header() + (req.length || opt.length ? `<div class="card note ${req.length ? "bad" : ""}">
       ${req.length ? `<b>Install these before you start:</b>` : `<b>Optional tools not installed:</b>`}
       <table style="margin-top:6px">${[...req, ...opt].map((t) => `<tr><td class="mono">${esc(t.tool)}</td><td>${t.required ? "required" : "optional"}: ${esc(t.for)}</td><td class="mono">${esc(t.install)}</td></tr>`).join("")}</table>
-      <p class="muted" style="margin:8px 0 0">Then restart the app.</p></div>` : "") + `
-    <div class="card">
-      <h1>Migrate a codebase without breaking it</h1>
-      <p class="sub">Point the agent at a repo. It pins today's behaviour with tests, plans the migration in safe steps, has open models make the edits, and nothing merges until the tests stay green and NVIDIA Nemotron has reviewed the change. You merge the result.</p>
-      <label for="src">GitHub URL or local path of a git repo</label>
-      <div class="row"><input id="src" placeholder="https://github.com/you/legacy-app  or  ~/code/legacy-app"><button class="primary" id="add">Add repo</button></div>
-      <p class="muted" style="margin-top:8px">A GitHub URL is cloned into the workspace. A local path is used in place: the agent's files are committed to that repo.</p>
-      <pre class="log mono" id="log" hidden></pre>
+      <p class="muted" style="margin:8px 0 0">Restart the app after installing.</p></div>` : "") + `
+    <div class="card hero" id="repoCard"><div class="home-hero-grid"><div class="hero-copy">
+            <h1>Migrate a codebase<br>without breaking what works.</h1>
+      <p class="sub">Plans each step, tests it, and merges only what passes review.</p>
+      <label for="src">GitHub URL or local path</label>
+      <div class="row"><input id="src" placeholder="https://github.com/you/legacy-app  or  ~/code/legacy-app"><button class="primary" id="add">Add project</button></div>
+      <p class="muted" style="margin-top:8px">Your main branch stays untouched.</p>
+      <pre class="log mono" id="log" hidden></pre></div>
+      <img class="chameleon-art" src="/assets/morphameleon-hero.png" alt="Colorful chameleon curled around a yellow sun"></div>
     </div>
-    <div class="card"><h2>Projects</h2>${projects.length ? `<table><tr><th>Name</th><th>Path</th><th>Loop</th><th></th></tr>${projects.map((p) => `<tr><td><a href="#/p/${p.id}/providers">${esc(p.name)}</a></td><td class="mono muted">${esc(p.path)}</td><td>${p.loop ? '<span class="badge s-work"><span class="dot"></span>running</span>' : '<span class="muted">stopped</span>'}</td><td><a href="#/p/${p.id}/dashboard">Dashboard</a></td></tr>`).join("")}</table>` : '<div class="empty">No projects yet.</div>'}</div>`;
+    <div class="card" id="projectsCard"><h3 class="section-title">Projects</h3>${projects.length ? `<div class="project-grid">${projects.map((p) => `<a class="project-tile" href="#/p/${p.id}/${p.loop ? "dashboard" : "providers"}"><b>${esc(p.name)}</b><span class="mono muted">${esc(p.path)}</span>${p.loop ? '<span class="badge s-work"><span class="dot"></span>Migration running</span>' : '<span class="badge"><span class="dot"></span>Migration paused</span>'}</a>`).join("")}</div>` : '<div class="empty">No projects yet.</div>'}</div>`;
   $("add").onclick = async () => {
     const log = $("log"); log.hidden = false; log.textContent = "Starting…"; $("add").disabled = true;
     try {
@@ -177,45 +406,66 @@ async function home() {
     } catch (e) { toast(e.message); }
     $("add").disabled = false;
   };
+  setTimeout(offerTour, 350);
+  tourRendered();
 }
 
 // ---------- project ----------
-const STEPS = [["providers", "Providers"], ["questions", "Questions"], ["models", "Models"], ["start", "Start"], ["dashboard", "Dashboard"]];
+const STEPS = [["providers", "Connect", "Add your provider"], ["questions", "Plan", "Define the change"], ["models", "Configure", "Choose a strategy"], ["start", "Launch", "Review and begin"], ["dashboard", "Monitor", "Track progress"]];
+function projectSwitcher(projects, current) {
+  return `<details class="project-switcher"><summary aria-label="Switch project">${esc(current.name)}</summary><div class="project-menu"><div class="project-menu-label">Switch project</div>${projects.map((x)=>`<a class="project-option ${x.id===current.id?"current":""}" href="#/p/${x.id}/${x.loop?"dashboard":"providers"}">${x.id===current.id?"✓ ":""}${esc(x.name)}</a>`).join("")}<hr><a class="project-option" href="#/">＋ Add repository</a><a class="project-option" href="#/">View all projects</a></div></details>`;
+}
 async function projectPage(pid, step) {
-  let p;
-  try { p = await api("projects/" + pid); } catch (e) { $("app").innerHTML = header() + `<div class="card note bad">${esc(e.message)}</div>`; return; }
+  let p, projects;
+  try { [p, projects] = await Promise.all([api("projects/" + pid), api("projects")]); } catch (e) { $("app").innerHTML = header() + `<div class="card note bad">${esc(e.message)}</div>`; return; }
   const done = { providers: p.keyReady, questions: !!p.migration, start: p.started, dashboard: p.started };
-  $("app").innerHTML = header(`<span class="sub" id="loopbadge">${loopBadge(p.loop)}</span>`) +
-    `<h1>${esc(p.name)}</h1><div class="mono muted">${esc(p.path)}</div>
-     <nav class="steps">${STEPS.map(([k, n], i) => `<a class="step ${k === step ? "on" : ""} ${done[k] ? "ok" : ""}" href="#/p/${pid}/${k}"><b>${done[k] ? "✓" : i + 1}</b>${n}</a>`).join("")}</nav>
+  const stepName = STEPS.find(([k])=>k===step)?.[1] || "Connect";
+  const crumb = `<a href="#/">Projects</a><span>/</span><span>${esc(p.name)}</span><span>/</span><b>${esc(stepName)}</b>`;
+  const nav = `<nav class="steps" id="stepnav" aria-label="Migration steps" style="--progress:${Math.max(0,STEPS.findIndex(([k])=>k===step))*20}%">${STEPS.map(([k, n, d], i) => `<a class="step ${k === step ? "on" : ""} ${done[k] ? "ok" : ""}" href="#/p/${pid}/${k}"${k === step ? ' aria-current="step"' : ""}><b>${done[k] ? "✓" : i + 1}</b>${n}<small>${d}</small></a>`).join("")}</nav>`;
+  // Same project: swap only the breadcrumb and stepper so the page keeps its scroll position.
+  if (mountedPid !== pid || !$("body")) {
+    mountedPid = pid;
+    $("app").innerHTML = header(`${projectSwitcher(projects,p)}<span class="sub" id="loopbadge">${loopBadge(p.loop)}</span>`) +
+      `<div class="breadcrumb" id="crumb">${crumb}</div><div class="project-head"><div><div class="eyebrow">Active project</div><h1>${esc(p.name)}</h1><details class="project-meta"><summary>Project details</summary><div class="mono muted project-path" title="${esc(p.path)}">${esc(p.path)}</div></details></div></div>
+     ${nav}
      <div id="body"></div>`;
+    window.scrollTo(0, 0);
+  } else {
+    $("crumb").innerHTML = crumb;
+    $("stepnav").outerHTML = nav;
+  }
+  // Keep the content height until the new step renders, so the page does not collapse and jump.
+  const body = $("body");
+  body.style.minHeight = body.offsetHeight + "px";
+  new MutationObserver((_, obs) => { body.style.minHeight = ""; obs.disconnect(); }).observe(body, { childList: true });
   ({ questions: questionsStep, providers: providersStep, models: modelsStep, start: startStep, dashboard: dashboardStep }[step] || providersStep)(p);
+  tourRendered();
 }
 
 async function questionsStep(p) {
   const b = $("body"), q = p.questions;
   if (!q) {
-    b.innerHTML = (p.keyReady ? "" : `<div class="note">No API key yet: the analysis still runs, but the suggested answers need a model. <a href="#/p/${p.id}/providers">Add your key in Providers</a> first.</div>`) + `<div class="card"><h2>1 · Analyse the repo</h2><p>The agent reads the repo (stack, commands, modules, which ones have tests, import order), runs the tests to check the starting point is green, and asks the helper model to suggest answers.</p><button class="primary" id="prep">Analyse repo</button><pre class="log mono" id="log" hidden style="margin-top:12px"></pre></div>`;
+    b.innerHTML = (p.keyReady ? "" : `<div class="note">No API key yet. <a href="#/p/${p.id}/providers">Add one</a> to get suggested answers.</div>`) + `<div class="card"><h2>1 · Analyse the repo</h2><p>The agent reads the repo and runs its tests to check the starting point.</p><button class="primary" id="prep">Analyse repo</button><pre class="log mono" id="log" hidden style="margin-top:12px"></pre></div>`;
     $("prep").onclick = async () => { $("prep").disabled = true; $("log").hidden = false;
       try { const j = await waitJob(await api(`projects/${p.id}/prepare`, {}), $("log")); if (j.status === "done") route(); else toast("Analysis failed; see the log"); }
       catch (e) { toast(e.message); } $("prep").disabled = false; };
     return;
   }
   const s = q.summary;
+  const hasTests = !!s.test_runner && s.test_runner !== "none";
   b.innerHTML = `
-    <div class="card"><h2>What the agent found</h2>
-      <div class="row">${[`${esc(s.language)}${s.module_style ? " (" + esc(s.module_style) + ")" : ""}`, `${s.modules} modules`, `test runner: ${esc(s.test_runner || "none")}`, ...Object.entries(s.commands || {}).map(([k, v]) => `${esc(k)}: <span class="mono">${esc(v)}</span>`)].map((x) => `<span class="badge">${x}</span>`).join("")}
-      ${q.baseline === "green" ? '<span class="badge s-good"><span class="dot"></span>✓ baseline tests pass</span>' : '<span class="badge s-crit"><span class="dot"></span>✕ baseline tests fail</span>'}</div>
-      ${q.baseline !== "green" ? '<div class="note bad">The tests fail on the current code. Fix them first: a migration can only be proven against a green baseline.</div>' : ""}
+    <div class="card"><div class="eyebrow">Analysis</div><h3 class="section-title">What the agent found</h3>
+      <div class="summary-grid"><div class="summary-item"><b>${esc(s.language)}</b><span>${esc(s.module_style || "Project language")}</span></div><div class="summary-item"><b>${s.modules}</b><span>modules detected</span></div><div class="summary-item"><b>${hasTests ? esc(s.test_runner) : "None"}</b><span>test runner</span></div><div class="summary-item"><b>${s.untested.length}</b><span>modules without tests</span></div></div>
+      ${!hasTests ? '<div class="note bad"><b>No tests detected.</b> Behaviour can’t be protected without them.</div>' : q.baseline === "green" ? '<div class="note good"><b>Baseline tests pass.</b></div>' : '<div class="note bad"><b>Baseline tests fail.</b> Fix them before migrating.</div>'}
       ${(q.warnings || []).map((w) => `<div class="note">! ${esc(w)}</div>`).join("")}
-      <p class="muted" style="margin-top:10px">Modules without tests: ${s.untested.map((u) => `<span class="mono">${esc(u)}</span>`).join(", ") || "none"}</p>
-      <button class="link" id="reprep">Analyse again</button></div>
-    <div class="card"><h2>2 · Answer the migration questions</h2><p class="sub">Suggestions are pre-filled. Separate list items with “;”.</p>
+      ${s.untested.length ? `<details class="advanced"><summary>View modules without tests (${s.untested.length})</summary><div class="log mono" style="margin-top:10px">${s.untested.map(esc).join("\n")}</div></details>` : ""}
+      <div style="margin-top:14px"><button class="link" id="reprep">Run analysis again</button></div></div>
+    <div class="card"><div class="eyebrow">Plan</div><h3 class="section-title">Define success</h3><p class="sub">Suggestions are pre-filled. Separate list items with “;”.</p>
       <div class="qgrid">${q.questions.map((x, i) => `<div><label for="q_${x.key}">${i + 1}. ${esc(x.text)}</label><textarea id="q_${x.key}" rows="${x.default.length > 120 ? 5 : 2}">${esc(x.default)}</textarea></div>`).join("")}</div>
-      <div class="row" style="margin-top:14px"><button class="primary" id="write">Write MIGRATION.md</button></div></div>
-    <div class="card" id="migcard" ${p.migration ? "" : "hidden"}><h2>3 · Review MIGRATION.md</h2><p class="sub">The planner and every worker read this file. Fix anything wrong, then save.</p>
+      <div class="row" style="margin-top:18px"><button class="primary" id="write">Create migration plan</button></div></div>
+    <div class="card" id="migcard" ${p.migration ? "" : "hidden"}><div class="eyebrow">Final review</div><h3 class="section-title">Review the plan</h3><p class="sub">The agents follow this plan. Edit it if needed.</p>
       <textarea id="mig" class="mono" style="min-height:420px">${esc(p.migration || "")}</textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="save">Save</button><a href="#/p/${p.id}/models">Next: models →</a></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="primary" id="save">Save plan</button><a href="#/p/${p.id}/models">Continue to agent strategy →</a></div></div>`;
   $("reprep").onclick = async () => { $("reprep").disabled = true; toast("Analysing… (about a minute)"); try { await waitJob(await api(`projects/${p.id}/prepare`, {})); route(); } catch (e) { toast(e.message); } };
   $("write").onclick = async () => {
     const answers = Object.fromEntries(q.questions.map((x) => [x.key, $("q_" + x.key).value]));
@@ -227,14 +477,16 @@ async function questionsStep(p) {
 async function providersStep(p) {
   const provs = await api(`projects/${p.id}/providers`);
   $("body").innerHTML = `
-    <div class="card"><h2>Connected providers</h2><p class="sub">Any OpenAI-compatible endpoint. Keys are stored only on this machine, in the project's git-ignored <span class="mono">.agents/secrets.sh</span>.</p>
-      <table><tr><th>Provider</th><th>Base URL</th><th>Key</th><th>Models</th><th></th></tr>${provs.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td class="mono">${esc(x.baseUrl)}</td><td>${x.keySet ? '<span class="badge s-good"><span class="dot"></span>✓ set</span>' : '<span class="badge s-crit"><span class="dot"></span>✕ missing</span>'} <span class="mono muted">${esc(x.keyEnv)}</span></td><td>${x.models.length}</td><td><button class="link" data-pick="${esc(x.name)}">Choose models</button> · <button class="link" data-edit="${esc(x.name)}">Edit</button></td></tr>`).join("") || '<tr><td class="empty">None yet.</td></tr>'}</table></div>
-    <div class="card"><h2 id="ftitle">Add a provider</h2>
+    <div class="card"><div class="eyebrow">Model provider</div><h3 class="section-title">Connect a model</h3><p class="sub">Your key stays on this machine.</p>
+      ${provs.length ? provs.map((x) => `<div class="provider-card"><div class="provider-id"><div class="provider-icon">${x.name.slice(0,1).toUpperCase()}</div><div><b>${esc(x.name === "tokenfactory" ? "Nebius Token Factory" : x.name)}</b><div class="muted">${x.models.length} models available · ${x.keySet ? '<span class="s-good">Connected</span>' : '<span class="s-crit">Key required</span>'}</div></div></div><div class="actions"><button data-pick="${esc(x.name)}">Manage models</button><button data-edit="${esc(x.name)}">${x.keySet ? "Change key" : "Add key"}</button></div></div>`).join("") : '<div class="empty-state"><div class="empty-icon">↗</div><b>No provider connected</b><p class="sub">Connect Nebius Token Factory to start.</p></div>'}
+      <details class="advanced"><summary>Connection details</summary>${provs.map((x)=>`<p class="mono muted" style="margin-top:10px">${esc(x.baseUrl)} · ${esc(x.keyEnv)}</p>`).join("")}</details></div>
+    <div class="card" id="providerForm" ${provs.some((x)=>x.keySet) ? "hidden" : ""}><div class="eyebrow">Setup</div><h3 class="section-title" id="ftitle">Connect a provider</h3>
       <div class="qgrid"><div><label for="pn">Name</label><input id="pn" placeholder="tokenfactory"></div><div><label for="pu">Base URL</label><input id="pu" placeholder="https://api.tokenfactory.nebius.com/v1"></div>
-      <div><label for="pk">Key variable</label><input id="pk" placeholder="NEBIUS_API_KEY"></div><div><label for="pv">API key (leave empty to keep the stored one)</label><input id="pv" type="password" autocomplete="off"></div></div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="psave">Save provider</button>${provs.some((x) => x.keySet) ? `<a href="#/p/${p.id}/questions">Next: questions →</a>` : ""}</div></div>
+      <div><label for="pk">Key variable</label><input id="pk" placeholder="NEBIUS_API_KEY"></div><div><label for="pv">API key (blank keeps the saved one)</label><input id="pv" type="password" autocomplete="off"></div></div>
+      <div class="row" style="margin-top:16px"><button class="primary" id="psave">Save connection</button>${provs.some((x) => x.keySet) ? `<a href="#/p/${p.id}/questions">Continue to migration plan →</a>` : ""}</div></div>
+    ${provs.some((x)=>x.keySet) ? `<div class="row" style="justify-content:flex-end;margin:-4px 0 18px"><a href="#/p/${p.id}/questions">Continue to migration plan →</a></div>` : ""}
     <div class="card" id="pickcard" hidden></div>`;
-  document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { const x = provs.find((y) => y.name === b.dataset.edit); $("pn").value = x.name; $("pu").value = x.baseUrl; $("pk").value = x.keyEnv; $("ftitle").textContent = "Edit " + x.name; $("pn").scrollIntoView({ behavior: "smooth" }); }));
+  document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { const x = provs.find((y) => y.name === b.dataset.edit); $("providerForm").hidden=false; $("pn").value = x.name; $("pu").value = x.baseUrl; $("pk").value = x.keyEnv; $("ftitle").textContent = "Update " + (x.name === "tokenfactory" ? "Nebius Token Factory" : x.name); $("providerForm").scrollIntoView({ behavior: "smooth" }); }));
   document.querySelectorAll("[data-pick]").forEach((b) => (b.onclick = () => pickModels(p, provs.find((y) => y.name === b.dataset.pick))));
   $("psave").onclick = async () => {
     try { await api(`projects/${p.id}/providers`, { name: $("pn").value.trim(), baseUrl: $("pu").value.trim(), keyEnv: $("pk").value.trim(), key: $("pv").value.trim() }); toast("Provider saved"); route(); } catch (e) { toast(e.message); }
@@ -242,7 +494,7 @@ async function providersStep(p) {
 }
 
 async function pickModels(p, prov) {
-  const c = $("pickcard"); c.hidden = false; c.innerHTML = `<h2>Models from ${esc(prov.name)}</h2><p class="muted">Loading the model list…</p>`; c.scrollIntoView({ behavior: "smooth" });
+  const c = $("pickcard"); c.hidden = false; c.innerHTML = `<div class="empty-state">${tailLoader}<h3 class="section-title">Loading models</h3><p class="muted">Reading the available models from ${esc(prov.name)}…</p></div>`; c.scrollIntoView({ behavior: "smooth" });
   let list;
   try { list = await api(`projects/${p.id}/providers/${prov.name}/available`); } catch (e) { c.innerHTML = `<div class="note bad">${esc(e.message)}</div>`; return; }
   list.sort((a, b) => (b.index ?? -1) - (a.index ?? -1));
@@ -258,19 +510,29 @@ async function modelsStep(p) {
   const info = (model) => cat[(model || "").split(":")[0].split("/").slice(1).join("/")] || {};
   const fam = (model) => info(model).family || ((model || "").split("/")[1] || "").toLowerCase();
   const levels = ["", "low", "medium", "high", "xhigh", "max"];
+  const strategy = localStorage.getItem("nma-strategy") || "default";
   $("body").innerHTML = `
-    <div class="card"><h2>Model per role</h2><p class="sub">The pipeline's roles are fixed; pick the model for each. Rules: the judge and reviewer must be a family no worker uses, and the two workers must be different families, so no model ever grades its own family's work.</p>
-      <div class="roles"><div class="rrow head"><div>Role</div><div>Model</div><div>Effort</div><div>Family</div><div>Index · $/task</div></div>
+    <div class="card"><div class="eyebrow">Agent strategy</div><h3 class="section-title">Choose a review strategy</h3><p class="sub">Recommended uses separate model families, so no agent reviews its own work.</p>
+      <div class="preset-grid">
+        <label class="preset"><div><input type="radio" name="strategy" value="default" ${strategy === "default" ? "checked" : ""}><b>Recommended</b></div><p>Two agents with independent review.</p></label>
+        <label class="preset"><div><input type="radio" name="strategy" value="fast" ${strategy === "fast" ? "checked" : ""}><b>Fast</b></div><p>One agent, fewer reviews.</p></label>
+        <label class="preset"><div><input type="radio" name="strategy" value="risky" ${strategy === "risky" ? "checked" : ""}><b>High assurance</b></div><p>Extra reviews and sign-off.</p></label>
+      </div>
+      <div class="note good">✓ Independent review is on.</div>
+      <details class="advanced"><summary>Advanced model configuration</summary><p class="sub" style="margin-top:10px">Pick a model and reasoning depth for each role.</p>
+      <div class="roles"><div class="rrow head"><div>Role</div><div>Model</div><div>Reasoning</div><div>Family</div><div>Capability · est. cost</div></div>
       ${m.roles.map((r) => { const cur = m.current[r.key] || ""; const [base, lvl] = cur.includes(":") ? [cur.slice(0, cur.lastIndexOf(":")), cur.slice(cur.lastIndexOf(":") + 1)] : [cur, ""];
         const opts = m.available.map((a) => a.model); if (base && !opts.includes(base)) opts.unshift(base);
-        return `<div class="rrow"><div><b>${esc(r.name)}</b><div class="muted">${esc(r.does)}</div></div>
+        const friendly = {orchestrator:"Planner",reviewer:"Independent reviewer",worker_a:"Implementation agent A",worker_b:"Implementation agent B",tester:"Behaviour test agent",helper:"Repository analyst",last_retry:"Recovery agent"}[r.key] || r.name;
+        return `<div class="rrow"><div><b>${esc(friendly)}</b><div class="muted">${esc(r.does)}</div></div>
         <div><select id="r_${r.key}" aria-label="${esc(r.name)} model">${opts.map((o) => `<option value="${esc(o)}" ${o === base ? "selected" : ""}>${esc(info(o).name || o)}</option>`).join("")}</select></div>
-        <div><select id="e_${r.key}" aria-label="${esc(r.name)} effort">${levels.map((l) => `<option ${l === (lvl || "") ? "selected" : ""} value="${l}">${l || "default"}</option>`).join("")}</select></div>
+        <div><select id="e_${r.key}" aria-label="${esc(r.name)} effort">${levels.map((l) => `<option ${l === (lvl || "") ? "selected" : ""} value="${l}">${({"":"Standard",low:"Light",medium:"Balanced",high:"Deep",xhigh:"Very deep",max:"Maximum"})[l]}</option>`).join("")}</select></div>
         <div id="f_${r.key}"></div><div id="s_${r.key}" class="muted"></div></div>`; }).join("")}</div>
       <div id="problems"></div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="rsave">Save roles</button><button id="rtest">Test all models</button><a href="#/p/${p.id}/start">Next: start →</a></div>
+      <p class="muted" style="margin-top:10px">Capability data from <a href="${esc(m.source?.scores)}" target="_blank" rel="noopener">Artificial Analysis</a>; prices from <a href="${esc(m.source?.prices)}" target="_blank" rel="noopener">Token Factory</a>, checked ${esc(m.source?.checked)}.</p></details>
+      <div class="row" style="margin-top:18px"><button class="primary" id="rsave">Save strategy</button><button id="rtest">Test all agents</button><a href="#/p/${p.id}/start">Continue to preflight →</a></div>
       <pre class="log mono" id="log" hidden style="margin-top:12px"></pre>
-      <p class="muted" style="margin-top:10px">Scores from <a href="${esc(m.source?.scores)}" target="_blank" rel="noopener">Artificial Analysis</a>, prices from <a href="${esc(m.source?.prices)}" target="_blank" rel="noopener">Token Factory</a>, checked ${esc(m.source?.checked)}.</p></div>`;
+      </div>`;
   const roles = () => Object.fromEntries(m.roles.map((r) => [r.key, $("r_" + r.key).value + ($("e_" + r.key).value ? ":" + $("e_" + r.key).value : "")]));
   const refresh = () => {
     const rs = roles(), f = Object.fromEntries(Object.entries(rs).map(([k, v]) => [k, fam(v)])), probs = [];
@@ -281,20 +543,25 @@ async function modelsStep(p) {
     $("rsave").disabled = probs.length > 0;
   };
   m.roles.forEach((r) => { $("r_" + r.key).onchange = refresh; $("e_" + r.key).onchange = refresh; });
+  document.querySelectorAll('input[name="strategy"]').forEach((r)=>r.onchange=()=>localStorage.setItem("nma-strategy",r.value));
   refresh();
-  $("rsave").onclick = async () => { try { await api(`projects/${p.id}/models`, { roles: roles() }); toast("Roles saved"); } catch (e) { toast(e.message); } };
+  $("rsave").onclick = async () => { try { await api(`projects/${p.id}/models`, { roles: roles() }); toast("Agent Strategy saved"); } catch (e) { toast(e.message); } };
   $("rtest").onclick = async () => { $("rtest").disabled = true; $("log").hidden = false; try { await waitJob(await api(`projects/${p.id}/test-models`, {}), $("log")); } catch (e) { toast(e.message); } $("rtest").disabled = false; };
 }
 
 async function startStep(p) {
   const [provs, m] = await Promise.all([api(`projects/${p.id}/providers`), api(`projects/${p.id}/models`)]);
-  const checks = [[!!p.migration, "MIGRATION.md written", "questions"], [provs.some((x) => x.keySet && x.models.length), "A provider with a key and models", "providers"], [m.problems.length === 0, "Model families separated", "models"], [p.questions?.baseline === "green", "Baseline tests pass", "questions"]];
+  const hasTests = !!p.questions?.summary?.test_runner && p.questions.summary.test_runner !== "none";
+  const checks = [[!!p.migration, "Migration plan reviewed", "questions"], [provs.some((x) => x.keySet && x.models.length), "Model provider connected", "providers"], [m.problems.length === 0, "Independent review configured", "models"], [p.questions?.baseline === "green", hasTests ? "Baseline tests pass" : "Repository analysis complete", "questions"]];
   const ok = checks.every((c) => c[0]);
-  $("body").innerHTML = `<div class="card"><h2>Ready to start?</h2>
-    ${checks.map(([good, label, step]) => `<div class="check">${good ? '<span class="badge s-good"><span class="dot"></span>✓</span>' : '<span class="badge s-crit"><span class="dot"></span>✕</span>'} <span>${esc(label)} ${good ? "" : `· <a href="#/p/${p.id}/${step}">fix</a>`}</span></div>`).join("")}
-    ${p.started ? '<div class="note">This project already has a migration goal. Starting again queues another one.</div>' : ""}
-    <label for="prof">Profile</label><select id="prof" style="max-width:420px"><option value="">default: two workers on migrate tasks, extra review for critical modules</option><option value="risky">risky: every task high risk, two reviews and sign-off on everything</option><option value="fast">fast: one worker, no judge, three tasks in parallel</option></select>
-    <p class="muted" style="margin-top:10px">Starting commits MIGRATION.md and the model choices, queues the goal and starts the loop. The planner picks it up within a minute.</p>
+  const strategy = localStorage.getItem("nma-strategy") || "default";
+  $("body").innerHTML = `<div class="card"><div class="eyebrow">Preflight</div><h3 class="section-title">Ready to migrate ${esc(p.name)}?</h3>
+    <div class="preflight">${checks.map(([good, label, step]) => `<div class="check ${good ? "" : "bad"}">${good ? '<span class="badge s-good"><span class="dot"></span>Ready</span>' : '<span class="badge s-crit"><span class="dot"></span>Action needed</span>'} <span><b>${esc(label)}</b>${good ? "" : `<br><a href="#/p/${p.id}/${step}">Resolve this →</a>`}</span></div>`).join("")}</div>
+    ${!hasTests ? '<div class="note"><b>No tests detected.</b> You can continue, but tests make the result safer.</div>' : ""}
+    ${p.started ? '<div class="note">A migration already exists. Starting again queues another.</div>' : ""}
+    <label for="prof">Agent strategy</label><select id="prof" style="max-width:520px"><option value="" ${strategy === "default" ? "selected" : ""}>Recommended — two agents with independent review</option><option value="risky" ${strategy === "risky" ? "selected" : ""}>High assurance — extra review and sign-off</option><option value="fast" ${strategy === "fast" ? "selected" : ""}>Fast — one agent, fewer reviews</option></select>
+    <div class="note good"><b>Your main branch stays untouched.</b> Approved work lands on a separate branch.</div>
+    
     <div class="row"><button class="primary" id="go" ${ok ? "" : "disabled"}>Start migration</button></div></div>`;
   $("go").onclick = async () => { $("go").disabled = true; try { await api(`projects/${p.id}/start`, { profile: $("prof").value }); location.hash = `#/p/${p.id}/dashboard`; } catch (e) { toast(e.message); $("go").disabled = false; } };
 }
@@ -311,7 +578,7 @@ const gateChips = (g) => g.map((x) => `<span class="gate ${x.result}" title="${e
 let selected = null;
 async function dashboardStep(p) {
   let s;
-  if (!$("body").children.length) $("body").innerHTML = '<div class="empty">Loading the dashboard…</div>';
+  if (!$("body").children.length) $("body").innerHTML = `<div class="card empty-state">${tailLoader}<h3 class="section-title">Reading migration state</h3></div>`;
   try { s = await api(`projects/${p.id}/state`); } catch (e) { $("body").innerHTML = `<div class="note bad">${esc(e.message)}</div>`; return; }
   if (!location.hash.endsWith("/dashboard")) return;
   const mig = s.migration, mods = mig ? mig.modules : [];
@@ -324,42 +591,42 @@ async function dashboardStep(p) {
   if ($("loopbadge")) $("loopbadge").innerHTML = loopBadge(s.loop);
   const tile = (num, lbl, pct) => `<div class="card tile"><div class="num">${num}</div><div class="lbl">${lbl}</div>${pct != null ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
   const scrollY = window.scrollY;
+  const phase = goalDone ? 4 : merged ? 3 : s.tasks.length ? 2 : mig ? 1 : 0;
   $("body").innerHTML = `
-    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="sub">${mig ? `Migrating <b>${esc(mig.from)}</b> → <b>${esc(mig.to)}</b>` : ""} · updated ${esc(s.generated)}</div>
-      <div class="row"><button id="loopbtn">${s.loop ? "Pause loop" : "Resume loop"}</button>${canPr ? `<button class="primary" id="prbtn" ${merged ? "" : "disabled"} title="${goalDone ? "" : "Migration still running; the PR will contain what has merged so far"}">Open pull request</button>` : ""}</div></div>
-    <div class="card"><h2>Migrated code</h2>
-      <p>Everything that passed is on the <span class="mono">${esc(s.integration)}</span> branch of <span class="mono">${esc(p.path)}</span>${goalDone ? " (migration finished)" : " (still growing)"}. Your <span class="mono">${esc(s.main)}</span> branch is untouched until you merge.</p>
-      <pre class="log mono">cd ${esc(p.path)}
+    <div class="card hero"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="eyebrow">${s.loop ? "Migration in progress" : "Migration paused"}</div><h3 class="section-title">${goalDone ? "Migration complete" : needs ? `${needs} item${needs===1?"":"s"} need your attention` : s.tasks.length ? "Agents are working through the plan" : mig ? "The planner is preparing the first tasks" : "Review the migration plan to begin"}</h3><p class="sub">${mig ? `<b>${esc(mig.from)}</b> → <b>${esc(mig.to)}</b>` : "No migration plan yet"} · updated ${esc(s.generated)}</p></div>
+      <div class="row"><button id="loopbtn">${s.loop ? "Pause migration" : "Resume migration"}</button>${canPr ? `<button class="primary" id="prbtn" ${merged ? "" : "disabled"} title="${goalDone ? "" : "Migration still running; the PR will contain what has merged so far"}">Open pull request</button>` : ""}</div></div>
+      <div class="timeline">${["Repository analysed","Plan prepared","Behaviour protected","Code migrated","Final review"].map((x,i)=>`<div class="${i<phase?"done":i===phase?"active":""}">${i<phase?"✓ ":""}${x}</div>`).join("")}</div></div>
+    <div class="card"><div class="eyebrow">Safe working branch</div><h3 class="section-title">Your original code stays untouched</h3>
+      <p>Reviewed work goes to <span class="mono">${esc(s.integration)}</span>. You merge it into <span class="mono">${esc(s.main)}</span>.</p>
+      <details class="advanced"><summary>View local Git commands</summary><pre class="log mono" style="margin-top:10px">cd ${esc(p.path)}
 git log --oneline ${esc(s.main)}..${esc(s.integration)}     # what the agents merged
 git diff ${esc(s.main)}...${esc(s.integration)} --stat      # files changed
-git switch ${esc(s.integration)}                            # look at the migrated code</pre>
-      ${canPr ? "" : `<div class="note">${!ghRemote ? `To open a pull request from here, this repo needs a GitHub remote: create an empty GitHub repo, then <span class="mono">git remote add origin &lt;url&gt; &amp;&amp; git push -u origin ${esc(s.main)}</span>. Or merge locally: <span class="mono">git merge ${esc(s.integration)}</span>.` : `Install the GitHub CLI and run <span class="mono">gh auth login</span> to open pull requests from here.`}</div>`}</div>
-    <section class="grid tiles" style="margin-bottom:16px">
+git switch ${esc(s.integration)}                            # look at the migrated code</pre></details>
+      ${canPr ? "" : `<div class="note">${!ghRemote ? `Add a GitHub remote to open pull requests from here: <span class="mono">git remote add origin &lt;url&gt; &amp;&amp; git push -u origin ${esc(s.main)}</span>.` : `Install the GitHub CLI and run <span class="mono">gh auth login</span> to open pull requests from here.`}</div>`}</div>
+    ${s.tasks.length || mods.length ? `<section class="grid tiles" style="margin-bottom:16px">
       ${tile(`${migrated}/${mods.filter((m) => m.migrate !== null).length || mods.length}`, "modules migrated", mods.length ? (100 * migrated) / Math.max(1, mods.filter((m) => m.migrate !== null).length) : 0)}
-      ${tile(`${pinned}/${toPin}`, "untested modules pinned", toPin ? (100 * pinned) / toPin : 0)}
-      ${tile(`${merged}/${s.tasks.length}`, `tasks merged into <span class="mono">${esc(s.integration)}</span>`, s.tasks.length ? (100 * merged) / s.tasks.length : 0)}
-      ${tile(s.total_calls, `model calls · ${s.total_calls ? Math.round((100 * nem) / s.total_calls) : 0}% Nemotron`)}
-      ${tile(needs, needs === 1 ? "task needs you or the planner" : "tasks need you or the planner")}
-      ${tile(s.tasks.filter((t) => t.flaky).length, "flaky tests caught")}
-    </section>
+      ${tile(`${pinned}/${toPin}`, "modules with behaviour captured", toPin ? (100 * pinned) / toPin : 0)}
+      ${tile(`${merged}/${s.tasks.length}`, "reviewed tasks completed", s.tasks.length ? (100 * merged) / s.tasks.length : 0)}
+      ${tile(needs, needs === 1 ? "item needs your decision" : "items need your decision")}
+    </section>` : `<div class="card empty-state"><div class="empty-icon">◎</div><h3 class="section-title">No migration tasks yet</h3><p class="sub">Tasks appear here once the plan is approved.</p><a href="#/p/${p.id}/questions">Review migration plan →</a></div>`}
     <section class="grid two">
       <div class="card"><h2>Modules</h2><div class="scroll"><table>${mods.length ? `<tr><th>Module</th><th>Lines</th><th>Pinned</th><th>Migrated</th><th>Risk</th></tr>` + mods.map((m) => `<tr><td class="mono">${esc(m.path)}</td><td>${m.lines}</td><td>${m.pin === null ? (m.tested ? '<span class="muted">had tests</span>' : statusBadge(null)) : statusBadge(m.pin)}</td><td>${statusBadge(m.migrate)}</td><td class="muted">${esc(m.risk)}</td></tr>`).join("") : '<tr><td class="empty">No MIGRATION.md yet.</td></tr>'}</table></div></div>
       <div class="card"><h2>Model calls</h2><div class="legend"><span><i style="background:var(--series-1)"></i>NVIDIA Nemotron</span><span><i style="background:var(--series-2)"></i>Other open models</span></div>
         <div class="chart" id="chart">${s.models.length ? s.models.map((m, i) => `<div class="crow" data-i="${i}"><div class="name mono" title="${esc(m.model)}">${esc(m.model)}</div><div><div class="fill" style="width:${(100 * m.calls) / Math.max(1, ...s.models.map((x) => x.calls))}%;background:var(${m.tier.startsWith("Nemotron") ? "--series-1" : "--series-2"})"></div></div><div class="val">${m.calls}</div></div>`).join("") : '<div class="empty">No calls yet.</div>'}</div>
         <details style="margin-top:10px"><summary class="muted">Show as table</summary><table><tr><th>Model</th><th>Calls</th><th>Errors</th><th>Avg s</th></tr>${s.models.map((m) => `<tr><td class="mono">${esc(m.model)}</td><td>${m.calls}</td><td>${m.errors}</td><td>${Math.round(m.seconds / Math.max(1, m.calls))}</td></tr>`).join("")}</table></details></div>
     </section>
-    <h2>Tasks</h2>
-    <section class="board">${GROUPS.map(([name, sts]) => { const ts = s.tasks.filter((t) => sts.includes(t.status)); return `<div class="col"><h3><span>${name}</span><span>${ts.length}</span></h3>${ts.map((t) => `<button class="tcard${t.id === selected ? " sel" : ""}" data-id="${t.id}"><div class="chips"><span class="mono">${t.id}</span><span class="badge">${esc(t.type)}</span>${t.risk === "high" ? '<span class="badge s-warn"><span class="dot"></span>! high risk</span>' : ""}${t.flaky ? '<span class="badge s-warn"><span class="dot"></span>! flaky</span>' : ""}</div><div class="t">${esc(t.title)}</div><div class="chips">${statusBadge(t.status)} ${gateChips(t.gates)}</div></button>`).join("") || '<div class="empty">—</div>'}</div>`; }).join("")}</section>
+    ${s.tasks.length ? `<h2>Migration tasks</h2><section class="board">${GROUPS.map(([name, sts]) => { const ts = s.tasks.filter((t) => sts.includes(t.status)); return `<div class="col"><h3><span>${name}</span><span>${ts.length}</span></h3>${ts.map((t) => `<button class="tcard${t.id === selected ? " sel" : ""}" data-id="${t.id}"><div class="chips"><span class="mono">${t.id}</span><span class="badge">${esc(t.type)}</span>${t.risk === "high" ? '<span class="badge s-warn"><span class="dot"></span>! high risk</span>' : ""}${t.flaky ? '<span class="badge s-warn"><span class="dot"></span>! flaky</span>' : ""}</div><div class="t">${esc(t.title)}</div><div class="chips">${statusBadge(t.status)} ${gateChips(t.gates)}</div></button>`).join("") || '<div class="empty">—</div>'}</div>`; }).join("")}</section>` : ""}
     <section class="card" id="detail" hidden></section>
-    <section class="grid two"><div class="card"><h2>Orchestrator decisions (${esc(s.orchestrator || "")})</h2><div class="feed mono">${s.decisions.length ? s.decisions.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("") : '<div class="empty">No wakes yet.</div>'}</div></div>
-      <div class="card"><h2>Who does what</h2><table>${Object.entries(s.roles).map(([r, m]) => `<tr><td>${esc(r)}</td><td class="mono">${esc(m)}</td></tr>`).join("")}</table></div></section>`;
+    <details class="card advanced"><summary>Technical activity and agent assignments</summary><section class="grid two" style="margin-top:16px"><div><h2>Planning decisions (${esc(s.orchestrator || "")})</h2><div class="feed mono">${s.decisions.length ? s.decisions.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("") : '<div class="empty">No planning decisions yet.</div>'}</div></div>
+      <div><h2>Agent assignments</h2><table>${Object.entries(s.roles).map(([r, m]) => `<tr><td>${esc(r)}</td><td class="mono">${esc(m)}</td></tr>`).join("")}</table></div></section></details>`;
   window.scrollTo(0, scrollY);
   document.querySelectorAll("#chart .crow").forEach((row) => { const m = s.models[row.dataset.i]; row.onmousemove = (e) => { const t = $("tip"); t.style.display = "block"; t.style.left = e.clientX + 12 + "px"; t.style.top = e.clientY + 12 + "px"; t.innerHTML = `<b>${esc(m.model)}</b><br>${esc(m.tier)}<br>${m.calls} calls · ${m.errors} errors · avg ${Math.round(m.seconds / Math.max(1, m.calls))}s`; }; row.onmouseleave = () => ($("tip").style.display = "none"); });
   document.querySelectorAll(".tcard").forEach((b) => (b.onclick = () => { selected = b.dataset.id; dashboardStep(p); }));
   $("loopbtn").onclick = async () => { await api(`projects/${p.id}/loop`, { action: s.loop ? "stop" : "start" }); dashboardStep(p); };
   if ($("prbtn")) $("prbtn").onclick = async () => { if (!confirm("Push the merged migration as a new branch to the repo's GitHub remote and open a pull request?")) return; const log = document.createElement("pre"); log.className = "log mono"; $("body").prepend(log); const j = await waitJob(await api(`projects/${p.id}/pull-request`, {}), log); if (j.status === "done") toast("Pull request opened: " + j.result.url); else toast("Could not open the pull request; see the log"); };
   if (selected) showDetail(p, s.tasks.find((t) => t.id === selected));
-  timer = setTimeout(() => { if (!document.activeElement || !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) dashboardStep(p); else timer = setTimeout(() => dashboardStep(p), 5000); }, 6000);
+  const refresh = () => { if (tourIndex >= 0) return (timer = setTimeout(refresh, 1000)); if (!document.activeElement || !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) dashboardStep(p); else timer = setTimeout(() => dashboardStep(p), 5000); };
+  timer = setTimeout(refresh, 6000);
 }
 async function showDetail(p, t) {
   const el = $("detail"); if (!t) return; el.hidden = false;
@@ -370,7 +637,7 @@ async function showDetail(p, t) {
     <dl class="kv"><dt>Type / risk</dt><dd>${esc(t.type)} / ${esc(t.risk)}</dd><dt>Files</dt><dd class="mono">${esc(t.files)}</dd>${t.after ? `<dt>After</dt><dd class="mono">${esc(t.after)}</dd>` : ""}<dt>Gates</dt><dd class="chips">${gateChips(t.gates) || '<span class="muted">not run yet</span>'}</dd><dt>Verdicts</dt><dd>${v}</dd>${t.flaky ? `<dt>Flaky test</dt><dd><pre>${esc(t.flaky_note || "Diagnosis pending")}</pre></dd>` : ""}</dl>
     <div class="grid two"><div><h2>Brief</h2><pre style="max-height:320px;overflow:auto">${esc(t.brief)}</pre></div><div><h2>Model calls</h2><table>${t.calls.map((c) => `<tr><td>${esc(c.role)}</td><td class="mono">${esc(c.model)}</td><td>${c.rc ? `<span class="badge s-crit"><span class="dot"></span>✕ exit ${c.rc}</span>` : c.seconds + "s"}</td></tr>`).join("") || '<tr><td class="muted">none yet</td></tr>'}</table></div></div>
     <h2 style="margin-top:16px">Log</h2><pre class="mono">${esc(t.log.join("\n"))}</pre>
-    <h2 style="margin-top:16px">Diff</h2><div class="diff mono" id="diff"><div class="empty">Loading…</div></div>`;
+    <h2 style="margin-top:16px">Diff</h2><div class="diff mono" id="diff"><div class="empty" style="text-align:center">${tailLoader}<div>Loading changes…</div></div></div>`;
   $("close").onclick = () => { selected = null; el.hidden = true; };
   el.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => { try { await api(`projects/${p.id}/tasks/${t.id}/${b.dataset.act}`, { text: $("hint").value }); toast(`${t.id}: ${b.dataset.act} done`); dashboardStep(p); } catch (e) { toast(e.message); } }));
   const { diff } = await api(`projects/${p.id}/diff/${t.id}`).catch(() => ({ diff: "" }));

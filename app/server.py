@@ -471,6 +471,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if method == "GET" and url.path in ("/", "/index.html"):
             html = open(os.path.join(HERE, "index.html")).read().replace("__APP_TOKEN__", TOKEN)
             return self.reply(200, html, "text/html; charset=utf-8")
+        if method == "GET" and url.path == "/assets/morphameleon-logo.png":
+            with open(os.path.join(HERE, "assets", "morphameleon-logo.png"), "rb") as fh:
+                return self.reply(200, fh.read(), "image/png")
+        if method == "GET" and url.path == "/assets/morphameleon-hero.png":
+            with open(os.path.join(HERE, "assets", "morphameleon-hero.png"), "rb") as fh:
+                return self.reply(200, fh.read(), "image/png")
         if not url.path.startswith("/api/"):
             return self.reply(404, {"error": "not found"})
         if not secrets.compare_digest(self.headers.get("X-App-Token", ""), TOKEN):
