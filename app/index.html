@@ -147,6 +147,7 @@ function route() {
   return home();
 }
 window.addEventListener("hashchange", route);
+const loopBadge = (on) => on ? '<span class="badge s-work"><span class="dot"></span>loop running</span>' : '<span class="badge"><span class="dot"></span>loop stopped</span>';
 const header = (extra = "") => `<div class="top"><a class="brand" href="#/">Migration Agent<small>on Nebius Token Factory</small></a>${extra}</div>`;
 
 // ---------- home ----------
@@ -180,7 +181,7 @@ async function projectPage(pid, step) {
   let p;
   try { p = await api("projects/" + pid); } catch (e) { $("app").innerHTML = header() + `<div class="card note bad">${esc(e.message)}</div>`; return; }
   const done = { questions: !!p.migration, start: p.started, dashboard: p.started };
-  $("app").innerHTML = header(`<span class="sub">${p.loop ? '<span class="badge s-work"><span class="dot"></span>loop running</span>' : '<span class="badge"><span class="dot"></span>loop stopped</span>'}</span>`) +
+  $("app").innerHTML = header(`<span class="sub" id="loopbadge">${loopBadge(p.loop)}</span>`) +
     `<h1>${esc(p.name)}</h1><div class="mono muted">${esc(p.path)}</div>
      <nav class="steps">${STEPS.map(([k, n], i) => `<a class="step ${k === step ? "on" : ""} ${done[k] ? "ok" : ""}" href="#/p/${pid}/${k}"><b>${done[k] ? "✓" : i + 1}</b>${n}</a>`).join("")}</nav>
      <div id="body"></div>`;
@@ -315,11 +316,20 @@ async function dashboardStep(p) {
   const nem = s.models.filter((m) => m.tier.startsWith("Nemotron")).reduce((a, m) => a + m.calls, 0);
   const needs = s.tasks.filter((t) => ["stuck", "needs-you", "needs-approval", "needs-escalation"].includes(t.status)).length;
   const goalDone = s.goals.some((g) => g.status === "done");
+  const ghRemote = /github\.com/.test(p.remote || ""), canPr = ghRemote && p.gh;
+  if ($("loopbadge")) $("loopbadge").innerHTML = loopBadge(s.loop);
   const tile = (num, lbl, pct) => `<div class="card tile"><div class="num">${num}</div><div class="lbl">${lbl}</div>${pct != null ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
   const scrollY = window.scrollY;
   $("body").innerHTML = `
     <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="sub">${mig ? `Migrating <b>${esc(mig.from)}</b> → <b>${esc(mig.to)}</b>` : ""} · updated ${esc(s.generated)}</div>
-      <div class="row"><button id="loopbtn">${s.loop ? "Pause loop" : "Resume loop"}</button><button class="primary" id="prbtn" ${merged ? "" : "disabled"} title="${goalDone ? "" : "Migration still running; the PR will contain what has merged so far"}">Open pull request</button></div></div>
+      <div class="row"><button id="loopbtn">${s.loop ? "Pause loop" : "Resume loop"}</button>${canPr ? `<button class="primary" id="prbtn" ${merged ? "" : "disabled"} title="${goalDone ? "" : "Migration still running; the PR will contain what has merged so far"}">Open pull request</button>` : ""}</div></div>
+    <div class="card"><h2>Migrated code</h2>
+      <p>Everything that passed is on the <span class="mono">${esc(s.integration)}</span> branch of <span class="mono">${esc(p.path)}</span>${goalDone ? " (migration finished)" : " (still growing)"}. Your <span class="mono">${esc(s.main)}</span> branch is untouched until you merge.</p>
+      <pre class="log mono">cd ${esc(p.path)}
+git log --oneline ${esc(s.main)}..${esc(s.integration)}     # what the agents merged
+git diff ${esc(s.main)}...${esc(s.integration)} --stat      # files changed
+git switch ${esc(s.integration)}                            # look at the migrated code</pre>
+      ${canPr ? "" : `<div class="note">${!ghRemote ? `To open a pull request from here, this repo needs a GitHub remote: create an empty GitHub repo, then <span class="mono">git remote add origin &lt;url&gt; &amp;&amp; git push -u origin ${esc(s.main)}</span>. Or merge locally: <span class="mono">git merge ${esc(s.integration)}</span>.` : `Install the GitHub CLI and run <span class="mono">gh auth login</span> to open pull requests from here.`}</div>`}</div>
     <section class="grid tiles" style="margin-bottom:16px">
       ${tile(`${migrated}/${mods.filter((m) => m.migrate !== null).length || mods.length}`, "modules migrated", mods.length ? (100 * migrated) / Math.max(1, mods.filter((m) => m.migrate !== null).length) : 0)}
       ${tile(`${pinned}/${toPin}`, "untested modules pinned", toPin ? (100 * pinned) / toPin : 0)}
@@ -343,7 +353,7 @@ async function dashboardStep(p) {
   document.querySelectorAll("#chart .crow").forEach((row) => { const m = s.models[row.dataset.i]; row.onmousemove = (e) => { const t = $("tip"); t.style.display = "block"; t.style.left = e.clientX + 12 + "px"; t.style.top = e.clientY + 12 + "px"; t.innerHTML = `<b>${esc(m.model)}</b><br>${esc(m.tier)}<br>${m.calls} calls · ${m.errors} errors · avg ${Math.round(m.seconds / Math.max(1, m.calls))}s`; }; row.onmouseleave = () => ($("tip").style.display = "none"); });
   document.querySelectorAll(".tcard").forEach((b) => (b.onclick = () => { selected = b.dataset.id; dashboardStep(p); }));
   $("loopbtn").onclick = async () => { await api(`projects/${p.id}/loop`, { action: s.loop ? "stop" : "start" }); dashboardStep(p); };
-  $("prbtn").onclick = async () => { if (!confirm("Push the merged migration as a new branch to the repo's GitHub remote and open a pull request?")) return; const log = document.createElement("pre"); log.className = "log mono"; $("body").prepend(log); const j = await waitJob(await api(`projects/${p.id}/pull-request`, {}), log); if (j.status === "done") toast("Pull request opened: " + j.result.url); else toast("Could not open the pull request; see the log"); };
+  if ($("prbtn")) $("prbtn").onclick = async () => { if (!confirm("Push the merged migration as a new branch to the repo's GitHub remote and open a pull request?")) return; const log = document.createElement("pre"); log.className = "log mono"; $("body").prepend(log); const j = await waitJob(await api(`projects/${p.id}/pull-request`, {}), log); if (j.status === "done") toast("Pull request opened: " + j.result.url); else toast("Could not open the pull request; see the log"); };
   if (selected) showDetail(p, s.tasks.find((t) => t.id === selected));
   timer = setTimeout(() => { if (!document.activeElement || !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) dashboardStep(p); else timer = setTimeout(() => dashboardStep(p), 5000); }, 6000);
 }

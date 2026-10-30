@@ -8,8 +8,8 @@ no worker uses, has judged and reviewed the change. A human always makes the fin
 Built for the Nebius x NVIDIA hackathon (track: Coding and Agentic Engineering). Every model call runs on
 Nebius Token Factory; nothing depends on a local model router or a paid chat subscription.
 
-> Status: hackathon build. Migration mode, the setup questions and the dashboard work. The demo migrates
-> an Express 4 REST API to Fastify 5 + TypeScript + async/await. See the [roadmap](#roadmap).
+> Status: hackathon build. The demo migrated an Express 4 REST API to Fastify 5 + TypeScript +
+> async/await end to end: [see the result](#see-the-result). Roadmap [below](#roadmap).
 
 ## Why
 
@@ -27,6 +27,67 @@ them. This agent is built around proof instead of trust:
 - **Models chosen by measured intelligence per dollar**, not by brand: four models from four families, picked
   from the Artificial Analysis Intelligence Index v5 and Token Factory prices (see below).
 - **A human merges.** Agents merge into an `agents` branch; only you merge `agents` into `main`.
+
+## Quick start
+
+You need macOS or Linux with git, python3, jq, curl, `timeout` (macOS: `brew install coreutils`), Node for
+JavaScript projects, [pi](https://pi.dev), and a Nebius Token Factory API key. gitleaks and semgrep are
+optional (the security gate skips what isn't installed).
+
+```bash
+brew install coreutils jq gitleaks semgrep
+python3 app/server.py        # then open http://127.0.0.1:8780
+```
+
+1. **Add a repo:** paste a GitHub URL (cloned into `~/nemotron-migrations`) or the path of a local git repo.
+   The agent is installed and committed in it.
+2. **Questions:** the agent analyses the repo (stack, commands, modules, test coverage, import order),
+   checks the tests pass today, and shows the 10 migration questions pre-filled with suggestions. Answer
+   them, then review and edit the generated `MIGRATION.md`.
+3. **Providers:** connect any OpenAI-compatible API (Nebius Token Factory first). Keys stay on your machine
+   in the project's git-ignored `.agents/secrets.sh`. Pick which of the provider's models to use, with
+   their intelligence scores and prices shown.
+4. **Models:** pick a model for each fixed role (orchestrator, judge and reviewer, worker A and B, test
+   writer, helper, last retry). The app enforces the rule that keeps results honest: the reviewer is a
+   family no worker uses, and the two workers are different families. "Test all models" checks each one.
+5. **Start:** a checklist (plan written, key set, families separated, baseline green), a profile, and one
+   button: it commits the plan, queues the goal and starts the loop.
+6. **Dashboard:** modules pinned and migrated, the task board with gate history, verdicts, model calls and
+   diffs, the orchestrator's decisions, and actions: approve or reject a sign-off, requeue with a hint,
+   park, drop, pause or resume the loop, and **Open pull request** (pushes the result as a new branch and
+   opens a PR with the `gh` CLI; needs a GitHub remote and `gh auth login`). The migrated code is always on
+   the repo's `agents` branch, so without GitHub you can review it with `git switch agents` and merge it
+   yourself.
+
+The app listens on 127.0.0.1 only, and every API call needs a random token embedded in the page, so other
+sites open in your browser can't drive it. It is a thin layer over the scripts in `.agents/`: everything it
+does can also be done from the terminal (see [Without the app](#without-the-app)).
+
+## See the result
+
+[`examples/legacy-bookstore-api`](examples/legacy-bookstore-api) is the demo input: a bookstore REST API on
+Express 4 in callback-style CommonJS (books with filtering and paging, orders with tax, a bulk discount and
+stock reservation, API-key auth, hand-written validation, one error format). Only `GET /books` had tests.
+
+[`examples/legacy-bookstore-api-migrated`](examples/legacy-bookstore-api-migrated) is the same app after one
+run of the agent: **Fastify 5 + TypeScript (strict) + async/await**. Open the two folders side by side.
+
+| | Before | After |
+| --- | --- | --- |
+| Framework | Express 4 | Fastify 5 |
+| Language | CommonJS JavaScript, callbacks | Strict TypeScript, ES modules, async/await |
+| Tests | 5 | 100 (95 characterization tests pinned first; the original 5 untouched) |
+| Typecheck | n/a | clean |
+
+The run took 11 tasks, 37 model calls and about 34 minutes. The agent pinned behaviour with 7 pin tasks,
+converted `errors`, `validate` and `store` one at a time, then switched Express to Fastify in one high-risk
+task with two competing workers, two Nemotron reviews and a sign-off. Along the way the scope gate rejected a
+worker's symlink workaround and the security scan rejected one of the two Fastify versions. When it closed
+the migration, the orchestrator noted that `package.json` (out of scope) still lists Express, for a human to
+clean up.
+
+A smaller example, [`examples/legacy-invoice-js`](examples/legacy-invoice-js), is a plain JavaScript library
+to migrate to TypeScript.
 
 ## Architecture
 
@@ -129,97 +190,25 @@ Any OpenAI-compatible endpoint can be added as another provider in
 - **State is plain files.** Goals and tasks are Markdown files with frontmatter; every call is a row in
   `.agents/logs/runs.csv`. The dashboard reads these directly.
 
-## Quick start: the web app
+## Without the app
+
+The same flow from the terminal, inside the repo you want to migrate:
 
 ```bash
-python3 app/server.py        # http://127.0.0.1:8780
+bash ~/path/to/nemotron-migration-agent/setup.sh .   # install the agent (never copies your keys)
+echo 'export NEBIUS_API_KEY="..."' > .agents/secrets.sh   # git-ignored
+.agents/doctor.sh --models                           # tools, key, models (a few credits)
+git add .agents AGENTS.md NOTES.md .gitignore && git commit -m "migration agent"
+.agents/migrate.sh init                              # analyse, ask the 10 questions, write MIGRATION.md
+git add MIGRATION.md && git commit -m "migration plan"
+.agents/migrate.sh start                             # queue the goal
+tmux new -s agents '.agents/loop.sh'                 # run the pipeline
+python3 .agents/dashboard.py                         # read-only dashboard at http://127.0.0.1:8765
 ```
 
-1. **Add a repo:** paste a GitHub URL (cloned into `~/nemotron-migrations`) or the path of a local git repo.
-   The agent is installed and committed in it.
-2. **Questions:** the agent analyses the repo (stack, commands, modules, test coverage, import order),
-   checks the tests pass today, and shows the 10 migration questions pre-filled with suggestions. Answer
-   them, then review and edit the generated `MIGRATION.md`.
-3. **Providers:** connect any OpenAI-compatible API (Nebius Token Factory first). Keys stay on your machine
-   in the project's git-ignored `.agents/secrets.sh`. Pick which of the provider's models to use, with
-   their intelligence scores and prices shown.
-4. **Models:** pick a model for each fixed role (orchestrator, judge and reviewer, worker A and B, test
-   writer, helper, last retry). The app enforces the rule that keeps results honest: the reviewer is a
-   family no worker uses, and the two workers are different families. "Test all models" checks each one.
-5. **Start:** a checklist (plan written, key set, families separated, baseline green), a profile, and one
-   button: it commits the plan, queues the goal and starts the loop.
-6. **Dashboard:** modules pinned and migrated, the task board with gate history, verdicts, model calls and
-   diffs, the orchestrator's decisions, and actions: approve or reject a sign-off, requeue with a hint,
-   park, drop, pause or resume the loop, and **Open pull request** (pushes the result as a new branch and
-   opens a PR with the `gh` CLI).
-
-The app listens on 127.0.0.1 only, and every API call needs a random token embedded in the page, so other
-sites open in your browser can't drive it. It is a thin layer over the scripts below: everything it does
-can also be done from the terminal.
-
-## Setup from the terminal
-
-Requirements: macOS or Linux, git, bash 4+, `timeout` (macOS: `brew install coreutils`), jq, curl,
-python3, [pi](https://pi.dev), and a Nebius Token Factory API key. gitleaks and semgrep are optional
-(their gate is skipped without them).
-
-```bash
-brew install bash coreutils jq gitleaks semgrep tmux
-```
-
-1. **Install the agent into the repo you want to migrate:**
-   ```bash
-   bash setup.sh ~/code/my-legacy-repo
-   cd ~/code/my-legacy-repo
-   ```
-2. **Add your key** to `.agents/secrets.sh` (git ignores it; `setup.sh` never copies it):
-   ```bash
-   export NEBIUS_API_KEY="..."
-   ```
-3. **Tell it about the repo.** Edit `.agents/gates/check.sh` for the repo's test, lint, typecheck and build
-   commands (Node and Python are detected automatically), and fill in `AGENTS.md`.
-4. **Check everything:**
-   ```bash
-   .agents/doctor.sh            # tools, key, every model offered by Token Factory, pi config
-   .agents/doctor.sh --models   # every model replies "ready" (uses a few credits)
-   ```
-5. **Commit the kit:**
-   ```bash
-   git add .agents AGENTS.md NOTES.md .gitignore && git commit -m "agent pipeline"
-   ```
-6. **Describe the migration.** The agent reads the repo first (stack, commands, modules, which ones have
-   tests, import order), runs the tests to make sure the starting point is green, asks MiniMax for
-   suggested answers, then asks you only what it can't detect: from and to, scope, what must never change,
-   critical modules, whether new dependencies or API changes are allowed, what "done" means, and the
-   approach (what must move together, which boundary must stay identical). Read `MIGRATION.md` and fix
-   anything wrong before starting.
-   ```bash
-   .agents/migrate.sh init               # or: init --template, to fill MIGRATION.md by hand
-   git add MIGRATION.md && git commit -m "migration plan"
-   ```
-7. **Start it and watch:**
-   ```bash
-   tmux new -s agents 'caffeinate -is .agents/loop.sh'
-   .agents/migrate.sh start              # the orchestrator plans pin and migrate tasks on the next tick
-   python3 .agents/dashboard.py          # http://127.0.0.1:8765
-   ```
-
-### Try it on the demo app
-
-[`examples/legacy-bookstore-api`](examples/legacy-bookstore-api) is a bookstore REST API on Express 4 in
-callback-style CommonJS: books with filtering and paging, orders with tax, a bulk discount and stock
-reservation, API-key auth, hand-written validation and one error format. Only `GET /books` has tests. The
-migration target is Fastify 5 + TypeScript + async/await. The tests talk HTTP through `start()`, so the
-same tests prove the old and the new framework behave identically.
-
-```bash
-cp -R examples/legacy-bookstore-api ~/code/bookstore && cd ~/code/bookstore
-git init -b main && npm install && git add -A && git commit -m "legacy bookstore api"
-bash ~/path/to/nemotron-migration-agent/setup.sh .
-```
-
-A smaller example, [`examples/legacy-invoice-js`](examples/legacy-invoice-js), migrates a plain JavaScript
-library to TypeScript.
+Test, lint, typecheck and build commands are detected for Node and Python projects; edit
+`.agents/gates/check.sh` for anything else. `migrate.sh init --template` writes `MIGRATION.md` without
+questions, for you to fill in. `dashboard.py --export site/` writes a static snapshot you can host anywhere.
 
 ## How migration mode works
 
@@ -242,17 +231,7 @@ modules wired through the framework switch together in one task, so nothing has 
 of failing the worker, the dashboard flags it, and MiniMax writes a short diagnosis
 (`.agents/tasks/T-012.flaky.md`).
 
-## Dashboard (without the app)
-
-`python3 .agents/dashboard.py` serves a read-only dashboard at http://127.0.0.1:8765 that refreshes every 5
-seconds: modules pinned and migrated, the task board, each task's gate history (red to green), review
-verdicts, model calls and diff, calls per model split into Nemotron and other open models, and every
-orchestrator decision. It reads the state files only; it never changes anything.
-
-`python3 .agents/dashboard.py --export site/` writes a static snapshot (`index.html`, `state.json`,
-`diffs/`) you can host anywhere, e.g. GitHub Pages.
-
-## Usage
+## Commands
 
 | Command | What it does |
 | --- | --- |
@@ -295,8 +274,7 @@ Deadline: Oct 31, 2026, 01:00 GMT (Devpost).
       against injection attempts)
 - [x] API key in a git-ignored `secrets.sh` that `setup.sh` never copies
 - [x] `doctor.sh` checks the key, that every model is offered by Token Factory and visible to pi;
-      `--models` smoke test passes for all 7 models
-- [x] Both worker models verified editing files through the dispatcher
+      `--models` smoke test passes for every configured model
 - [x] Retry ladder, rate-limit fallbacks and daily caps rebuilt for Token Factory models
 - [x] Demo app (`examples/legacy-bookstore-api`): Express 4 REST API, callbacks, CommonJS, one tested endpoint
 - [x] `migrate.sh init`: detects stack, commands, modules, test coverage and import order; checks the
@@ -309,10 +287,11 @@ Deadline: Oct 31, 2026, 01:00 GMT (Devpost).
 - [x] Model roles in `.agents/config.json` and a model catalog with scores and prices, so the app can change
       models without touching the scripts
 - [x] Architecture page updated to the built design
+- [x] Full run: the bookstore API migrated from Express 4 to Fastify 5 + TypeScript end to end
+      ([result](examples/legacy-bookstore-api-migrated))
 
 ### Next, for the submission
 
-- [ ] **Full run:** the demo migration merges into `agents` end to end
 - [ ] **Release:** LICENSE (MIT), `gitleaks detect` over the history, make the repo public
 - [ ] **Submission:** demo video under 3 minutes, Devpost description, Token Factory and NVIDIA feedback,
       "what changed during the hackathon" write-up
@@ -362,6 +341,7 @@ app/                     local web app: server.py (standard library only) and in
   catalog.json           known models (family, intelligence score, price) and the fixed roles
   config.json            model per role, written by the app (optional)
   secrets.sh.example     copy to secrets.sh and add your key
-examples/                demo apps: legacy-bookstore-api (Express → Fastify), legacy-invoice-js (JS → TS)
+examples/                legacy-bookstore-api (demo input), legacy-bookstore-api-migrated (its result),
+                         legacy-invoice-js (smaller JS → TS example)
 docs/                    architecture pages
 ```

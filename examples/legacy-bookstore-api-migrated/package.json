@@ -1,0 +1,23 @@
+{
+  "name": "legacy-bookstore-api",
+  "version": "2.3.1",
+  "description": "Bookstore REST API on Express 4 with callbacks and CommonJS. Fastify is already a dependency: the team planned to move to it.",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "tsx src/index",
+    "test": "NODE_OPTIONS='--import tsx' vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "~4.21.2",
+    "fastify": "~5.6.1"
+  },
+  "devDependencies": {
+    "@types/express": "~4.17.23",
+    "@types/node": "~22.18.0",
+    "tsx": "~4.20.5",
+    "typescript": "~5.9.3",
+    "vitest": "~3.2.4"
+  }
+}
