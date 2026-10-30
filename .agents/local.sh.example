@@ -10,7 +10,7 @@
 
 # ---- Caps (Token Factory credits) ----
 # ORCH_DAILY_CAP=20               # orchestrator wakes per day (risky profile multiplies by 1.6)
-# ESC_DAILY_CAP=10                # last-rung (Nemotron Ultra) retries per day (risky profile adds 2)
+# ESC_DAILY_CAP=10                # last-rung (ESC_MODEL) retries per day (risky profile adds 2)
 # MAX_PARALLEL=1
 
 # ---- Model swaps (after stats.sh shows a better choice for this repo) ----

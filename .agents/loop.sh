@@ -2,7 +2,7 @@
 # loop.sh: run the pipeline. Start it in a tmux/screen window:
 #   tmux new -s agents '.agents/loop.sh'
 # Every LOOP_SLEEP seconds (profile-dependent): the scheduler starts queued tasks, then the orchestrator
-# tick wakes Nemotron Ultra if a decision is waiting. Once a day after COS_HOUR: status note.
+# tick wakes the orchestrator if a decision is waiting. Once a day after COS_HOUR: status note.
 set -uo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 COS_HOUR=${COS_HOUR:-8}; last=""

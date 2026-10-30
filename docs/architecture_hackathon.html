@@ -60,7 +60,7 @@ svg .n.ds rect{fill:var(--ds-bg);stroke:var(--ds)}
 <main>
 <p class="nav"><a href="architecture_current.html">&larr; See the current version</a></p>
 <h1>Nemotron migration agent</h1>
-<p class="lede">Point it at an old codebase. It pins current behaviour with tests, Nemotron Ultra plans the migration module by module, open models on Nebius Token Factory make the edits, and nothing merges until the tests stay green and a second model signs off. You make the final merge.</p>
+<p class="lede">Point it at an old codebase. It pins current behaviour with tests, it plans the migration in safe steps, open models on Nebius Token Factory make the edits, and nothing merges until the tests stay green and NVIDIA Nemotron, a family no worker uses, signs off. You make the final merge.</p>
 <ul class="key">
   <li><span class="sw nv"></span>Nemotron on Token Factory</li>
   <li><span class="sw go"></span>Open models on Token Factory</li>
@@ -69,14 +69,14 @@ svg .n.ds rect{fill:var(--ds-bg);stroke:var(--ds)}
   <li><span class="sw gt"></span>Optional: Nebius Serverless</li>
 </ul>
 
-<div class="fig"><svg viewBox="0 0 680 670" role="img" aria-labelledby="tH dH"><title id="tH">Target architecture</title><desc id="dH">You queue a migration goal and watch the dashboard, which reads task state and logs. The loop wakes Nemotron Ultra on events and Ultra answers with commands. The runner writes state, optionally runs gates as Nebius Serverless Jobs, and sends every model call through harness adapters to Token Factory, which serves Nemotron Super and Nano for judging, review, maps and diagnosis, and open models for workers and tests.</desc><defs><marker id="h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<div class="fig"><svg viewBox="0 0 680 670" role="img" aria-labelledby="tH dH"><title id="tH">Target architecture</title><desc id="dH">You queue a migration goal and watch the dashboard, which reads task state and logs. The loop wakes the orchestrator (DeepSeek V4.1 Flash 1017) on events and it answers with commands. The runner writes state, optionally runs gates as Nebius Serverless Jobs, and sends every model call through one pi dispatcher to Token Factory, which serves NVIDIA Nemotron 3.5 Super VL for judging and every review, and DeepSeek, MiniMax and GLM for planning, workers and tests.</desc><defs><marker id="h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
 <rect class="ct" x="40" y="20" width="600" height="100" rx="12"/><text class="cl-t" x="56" y="40">Your workbench</text>
 <g class="n sc"><rect x="80" y="54" width="200" height="56" rx="8"/><text class="t" x="180" y="73">You</text><text class="s" x="180" y="92">Pick repo + migration, merge</text></g>
 <g class="n ds"><rect x="400" y="54" width="200" height="56" rx="8"/><text class="t" x="500" y="73">Dashboard</text><text class="s" x="500" y="92">Task board, diffs, tests</text></g>
 <line class="ar" x1="396" y1="82" x2="284" y2="82" marker-end="url(#h)"/><text class="s" x="340" y="70">watch</text>
 <path class="ar" d="M260 110 L260 135 L370 135 L370 280" marker-end="url(#h)"/><text class="s" x="418" y="135">queue a goal</text>
 <rect class="ct" x="40" y="150" width="270" height="100" rx="12"/><text class="cl-t" x="56" y="170">Token Factory: decisions</text>
-<g class="n nv"><rect x="55" y="182" width="240" height="56" rx="8"/><text class="t" x="175" y="201">Nemotron Ultra</text><text class="s" x="175" y="220">Plans by module, triages, signs off</text></g>
+<g class="n go"><rect x="55" y="182" width="240" height="56" rx="8"/><text class="t" x="175" y="201">DeepSeek V4.1 Flash 1017</text><text class="s" x="175" y="220">Plans in phases, triages, signs off</text></g>
 <g class="n sc"><rect x="400" y="182" width="220" height="56" rx="8"/><text class="t" x="510" y="201">Task state + runs.csv</text><text class="s" x="510" y="220">Goals, tasks, logs, model per step</text></g>
 <line class="ar" x1="510" y1="180" x2="510" y2="112" marker-end="url(#h)"/><text class="s" x="540" y="146">reads</text>
 <line class="ar" x1="200" y1="250" x2="200" y2="280" marker-end="url(#h)"/><text class="s" x="150" y="265">commands</text>
@@ -86,24 +86,24 @@ svg .n.ds rect{fill:var(--ds-bg);stroke:var(--ds)}
 <g class="n gt"><rect x="500" y="282" width="130" height="56" rx="8"/><text class="t" x="565" y="301">Serverless Jobs</text><text class="s" x="565" y="320">Run gates</text></g>
 <line class="ar dash" x1="460" y1="310" x2="497" y2="310" marker-end="url(#h)"/>
 <line class="ar" x1="290" y1="338" x2="290" y2="366" marker-end="url(#h)"/>
-<g class="n sc"><rect x="120" y="368" width="340" height="56" rx="8"/><text class="t" x="290" y="387">Harness adapters, then Token Factory</text><text class="s" x="290" y="406">claude, omp, pi, Codex; fallbacks; one API</text></g>
+<g class="n sc"><rect x="120" y="368" width="340" height="56" rx="8"/><text class="t" x="290" y="387">One dispatcher: pi, then Token Factory</text><text class="s" x="290" y="406">repo-local config; fallbacks; every call logged</text></g>
 <line class="ar" x1="250" y1="424" x2="185" y2="460" marker-end="url(#h)"/><line class="ar" x1="330" y1="424" x2="495" y2="460" marker-end="url(#h)"/>
-<rect class="ct" x="40" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="484">Nemotron tiers</text>
-<g class="n nv"><rect x="45" y="502" width="135" height="56" rx="8"/><text class="t" x="112.5" y="521">Nemotron Super</text><text class="s" x="112.5" y="540">Judge, first review</text></g>
-<g class="n nv"><rect x="190" y="502" width="135" height="56" rx="8"/><text class="t" x="257.5" y="521">Nemotron Ultra</text><text class="s" x="257.5" y="540">Senior review, risky</text></g>
-<g class="n nv"><rect x="45" y="570" width="135" height="56" rx="8"/><text class="t" x="112.5" y="589">Nemotron Nano</text><text class="s" x="112.5" y="608">Repo map, context</text></g>
-<g class="n nv"><rect x="190" y="570" width="135" height="56" rx="8"/><text class="t" x="257.5" y="589">Nemotron Nano</text><text class="s" x="257.5" y="608">Flaky diagnosis</text></g>
-<rect class="ct" x="350" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="484">Open models, two families</text>
-<g class="n go"><rect x="355" y="502" width="135" height="56" rx="8"/><text class="t" x="422.5" y="521">Open model A</text><text class="s" x="422.5" y="540">Worker A</text></g>
-<g class="n go"><rect x="500" y="502" width="135" height="56" rx="8"/><text class="t" x="567.5" y="521">Open model B</text><text class="s" x="567.5" y="540">Worker B</text></g>
-<g class="n go"><rect x="355" y="570" width="135" height="56" rx="8"/><text class="t" x="422.5" y="589">Other family</text><text class="s" x="422.5" y="608">Characterization tests</text></g>
-<g class="n go"><rect x="500" y="570" width="135" height="56" rx="8"/><text class="t" x="567.5" y="589">Fallback model</text><text class="s" x="567.5" y="608">When a pool is full</text></g>
+<rect class="ct" x="40" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="56" y="484">NVIDIA Nemotron 3.5 Super VL (one model)</text>
+<g class="n nv"><rect x="45" y="502" width="135" height="56" rx="8"/><text class="t" x="112.5" y="521">Judge</text><text class="s" x="112.5" y="540">Picks the better one</text></g>
+<g class="n nv"><rect x="190" y="502" width="135" height="56" rx="8"/><text class="t" x="257.5" y="521">First review</text><text class="s" x="257.5" y="540">Every change</text></g>
+<g class="n nv"><rect x="45" y="570" width="135" height="56" rx="8"/><text class="t" x="112.5" y="589">Senior review</text><text class="s" x="112.5" y="608">Risky and long tasks</text></g>
+<g class="n nv"><rect x="190" y="570" width="135" height="56" rx="8"/><text class="t" x="257.5" y="589">UI QA</text><text class="s" x="257.5" y="608">Reads screenshots</text></g>
+<rect class="ct" x="350" y="462" width="290" height="188" rx="12"/><text class="cl-t" x="366" y="484">Open models, three families</text>
+<g class="n go"><rect x="355" y="502" width="135" height="56" rx="8"/><text class="t" x="422.5" y="521">DeepSeek V4.1</text><text class="s" x="422.5" y="540">Flash 1017: worker A</text></g>
+<g class="n go"><rect x="500" y="502" width="135" height="56" rx="8"/><text class="t" x="567.5" y="521">MiniMax M3.1</text><text class="s" x="567.5" y="540">Flash: worker B, map</text></g>
+<g class="n go"><rect x="355" y="570" width="135" height="56" rx="8"/><text class="t" x="422.5" y="589">GLM-5.3 Flash</text><text class="s" x="422.5" y="608">Pin tests, first retry</text></g>
+<g class="n go"><rect x="500" y="570" width="135" height="56" rx="8"/><text class="t" x="567.5" y="589">Fallback chain</text><text class="s" x="567.5" y="608">When rate-limited</text></g>
 </svg></div>
 
 <h2>What changed from the current kit</h2>
 <ul>
-  <li><strong>Models:</strong> Claude Opus, OpenCode Go and GOAT are replaced by Nemotron Ultra, Super and Nano plus open models, all on Nebius Token Factory.</li>
-  <li><strong>Harnesses:</strong> one hardwired harness becomes adapters, so each role can pick its own harness and model.</li>
+  <li><strong>Models:</strong> Claude Opus, OpenCode Go and GOAT are replaced by four models on Nebius Token Factory, chosen by intelligence per dollar: NVIDIA Nemotron 3.5 Super VL judges and reviews every change; DeepSeek V4.1 Flash 1017, MiniMax M3.1 Flash and GLM-5.3 Flash plan and write the code.</li>
+  <li><strong>Harness:</strong> every role runs through one dispatcher on pi with the repo's own config (no local router, no subscriptions); the orchestrator has no shell and its commands are allow-listed. Other harnesses can be added later.</li>
   <li><strong>Tests:</strong> instead of tests that must fail first, characterization tests must pass on the old code and stay green after the migration.</li>
   <li><strong>Interface:</strong> a dashboard over the existing state files and logs replaces reading log files in the terminal.</li>
   <li><strong>Unchanged:</strong> the loop, worktrees, best-of-2 with a judge, gates, cross-model review and your final merge.</li>

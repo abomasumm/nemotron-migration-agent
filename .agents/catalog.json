@@ -1,0 +1,35 @@
+{
+  "_comment": "Known models, for the model picker: family keeps reviewers apart from workers; index and cost_per_task are the Artificial Analysis Intelligence Index v5 and its cost per task (USD); prices are Token Factory USD per 1M tokens (input/output). Checked October 2026. Models not listed here can still be used; they show without scores.",
+  "source": {
+    "scores": "https://artificialanalysis.ai/leaderboards/models",
+    "prices": "https://tokenfactory.nebius.com/model-catalog.md",
+    "checked": "2026-10-30"
+  },
+  "models": [
+    {"id": "nvidia/Nemotron-3.5-Super-VL", "name": "Nemotron 3.5 Super VL", "family": "nemotron", "vendor": "NVIDIA", "index": 14, "cost_per_task": 0.56, "price_in": 0.3, "price_out": 0.9, "vision": true},
+    {"id": "nvidia/Nemotron-3-Ultra-550b-a55b", "name": "Nemotron 3 Ultra", "family": "nemotron", "vendor": "NVIDIA", "index": 12, "cost_per_task": 2.23, "price_in": 1.0, "price_out": 3.0},
+    {"id": "nvidia/Nemotron-3_5-Lightning", "name": "Nemotron 3.5 Lightning", "family": "nemotron", "vendor": "NVIDIA", "index": 6, "cost_per_task": 0.29, "price_in": 0.06, "price_out": 0.24},
+    {"id": "nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super", "family": "nemotron", "vendor": "NVIDIA", "price_in": 0.3, "price_out": 0.9},
+    {"id": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "name": "Nemotron 3 Nano", "family": "nemotron", "vendor": "NVIDIA", "price_in": 0.06, "price_out": 0.24},
+    {"id": "deepseek-ai/DeepSeek-V4.1-Flash-1017", "name": "DeepSeek V4.1 Flash 1017", "family": "deepseek", "vendor": "DeepSeek", "index": 32, "cost_per_task": 0.60, "price_in": 0.3, "price_out": 1.2},
+    {"id": "deepseek-ai/DeepSeek-V4-Pro-0813", "name": "DeepSeek V4 Pro 0813", "family": "deepseek", "vendor": "DeepSeek", "index": 23, "cost_per_task": 1.77, "price_in": 1.32, "price_out": 3.96},
+    {"id": "MiniMaxAI/MiniMax-M3.1-Flash", "name": "MiniMax M3.1 Flash", "family": "minimax", "vendor": "MiniMax", "index": 29, "cost_per_task": 0.49, "price_in": 0.15, "price_out": 0.6},
+    {"id": "MiniMaxAI/MiniMax-M3", "name": "MiniMax M3", "family": "minimax", "vendor": "MiniMax", "index": 19, "cost_per_task": 1.29, "price_in": 0.3, "price_out": 1.2},
+    {"id": "zai-org/GLM-5.3-Flash", "name": "GLM-5.3 Flash", "family": "glm", "vendor": "Z.ai", "index": 28, "cost_per_task": 0.58, "price_in": 0.15, "price_out": 0.5},
+    {"id": "zai-org/GLM-5.3", "name": "GLM-5.3", "family": "glm", "vendor": "Z.ai", "index": 32, "cost_per_task": 5.01, "price_in": 1.4, "price_out": 4.4},
+    {"id": "meta-models/muse-spark-open", "name": "Muse Spark Open", "family": "muse", "vendor": "Meta", "index": 25, "cost_per_task": 2.02, "price_in": 1.25, "price_out": 4.25},
+    {"id": "reflection/beam", "name": "Beam 1.0", "family": "beam", "vendor": "Reflection", "index": 18, "cost_per_task": 0.28, "price_in": 0.25, "price_out": 1.0},
+    {"id": "Qwen/Qwen3.8-27B", "name": "Qwen3.8 27B", "family": "qwen", "vendor": "Alibaba", "index": 20, "cost_per_task": 3.53, "price_in": 0.45, "price_out": 3.0},
+    {"id": "moonshotai/Kimi-K2.7-Code", "name": "Kimi K2.7 Code", "family": "kimi", "vendor": "Moonshot", "price_in": 0.95, "price_out": 4.0},
+    {"id": "Qwen/Qwen3.5-397B-A17B", "name": "Qwen3.5 397B", "family": "qwen", "vendor": "Alibaba", "price_in": 0.6, "price_out": 3.6}
+  ],
+  "roles": [
+    {"key": "orchestrator", "name": "Orchestrator", "does": "Plans the migration, triages stuck tasks, signs off risky work", "effort": "xhigh"},
+    {"key": "reviewer", "name": "Judge and reviewer", "does": "Picks the better attempt and reviews every change; must be a family no worker uses", "effort": ""},
+    {"key": "worker_a", "name": "Worker A", "does": "Writes the code (first of two competing workers)", "effort": "xhigh"},
+    {"key": "worker_b", "name": "Worker B", "does": "Writes the code (second worker, a different family from A)", "effort": "xhigh"},
+    {"key": "tester", "name": "Test writer", "does": "Writes characterization tests; first retry", "effort": "xhigh"},
+    {"key": "helper", "name": "Helper", "does": "Repo map, context packs, setup suggestions, flaky-test diagnosis", "effort": "xhigh"},
+    {"key": "last_retry", "name": "Last retry", "does": "Final attempt on hard tasks", "effort": "max"}
+  ]
+}

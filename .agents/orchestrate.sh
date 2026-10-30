@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# orchestrate.sh: Nemotron Ultra as the orchestrator, woken only when a decision is needed.
-#   orchestrate.sh goal "text" [profile]   queue a milestone goal (the orchestrator plans it on the next tick)
+# orchestrate.sh: the orchestrator model (ORCH_MODEL), woken only when a decision is needed.
+#   orchestrate.sh goal "text" [profile] [mode]  queue a milestone goal (planned on the next tick);
+#                                          mode "migration" plans pin and migrate tasks from MIGRATION.md
 #   orchestrate.sh tick                    cheap checks; wakes the orchestrator if events are waiting (loop.sh)
 #   orchestrate.sh events                  list waiting events without waking anyone
 #   orchestrate.sh brief                   print what the orchestrator would be given
@@ -20,16 +21,16 @@ goal_tasks() { local f; for f in $(task_files); do [ "$(fm_get "$f" goal)" = "$1
 orch_calls_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null | grep -c ',orchestrator,'); echo "${n:-0}"; }
 
 cmd_goal() {
-  [ -n "${1:-}" ] || { echo 'usage: orchestrate.sh goal "milestone goal" [default|risky|fast]'; exit 1; }
+  [ -n "${1:-}" ] || { echo 'usage: orchestrate.sh goal "milestone goal" [default|risky|fast] [migration]'; exit 1; }
   git -C "$ROOT" ls-files --error-unmatch "$AG/runner.sh" >/dev/null 2>&1 || {
     echo "Commit the kit first, so the agents branch starts from it:"
     echo "  git add .agents AGENTS.md NOTES.md .gitignore && git commit -m \"agent pipeline\""; exit 1; }
   local n id f
   n=$(goal_files | sed 's/.*G-0*//; s/\.md$//' | sort -n | tail -1); id=$(printf 'G-%03d' $(( ${n:-0} + 1 )))
   f="$GOALS/$id.md"
-  printf -- '---\nid: %s\ntitle: %s\nstatus: new\nprofile: %s\ncreated: %s\n---\n## Goal\n%s\n\n## Log\n' \
-    "$id" "$(printf '%s' "$1" | tr '\n' ' ' | cut -c1-80)" "${2:-}" "$(now)" "$1" >"$f"
-  echo "queued $id. The next tick packs context (Nano) and wakes the orchestrator to plan it."
+  printf -- '---\nid: %s\ntitle: %s\nstatus: new\nprofile: %s\nmode: %s\ncreated: %s\n---\n## Goal\n%s\n\n## Log\n' \
+    "$id" "$(printf '%s' "$1" | tr '\n' ' ' | cut -c1-80)" "${2:-}" "${3:-}" "$(now)" "$1" >"$f"
+  echo "queued $id. The next tick packs context and wakes the orchestrator to plan it."
 }
 
 cmd_goals() {
@@ -121,6 +122,9 @@ cmd_brief() {
     echo; echo "---"; echo "## Event: $kind $id"
     case "$kind" in
       plan)   f="$GOALS/$id.md"; cat "$f"
+              if [ "$(fm_get "$f" mode)" = migration ] && [ -s "$ROOT/MIGRATION.md" ]; then
+                echo; echo "### MIGRATION.md (this is a migration goal: plan it with the migration rules)"
+                head -c 16000 "$ROOT/MIGRATION.md"; fi
               if [ -s "$AG/context.md" ]; then echo; echo "### Context pack (.agents/context.md)"; head -c 12000 "$AG/context.md"
               else echo "(no context pack; read REPO_MAP.md)"; fi ;;
       wrapup) f="$GOALS/$id.md"; cat "$f"; echo; echo "### Tasks in this goal"

@@ -27,13 +27,20 @@ task_files() { local f; for f in "$TASKS"/T-*.md; do [[ $(basename "$f") =~ ^T-[
 tlog() { printf -- '- %s %s\n' "$(now)" "$2" >>"$1"; }   # append to task file's log
 
 # ---------- locks (portable, mkdir based) ----------
-lock() { local d="$AG/locks/$1"; local n=0
-  until mkdir "$d" 2>/dev/null; do n=$((n+1)); [ $n -gt 60 ] && return 1; sleep 1; done; }
-unlock() { rmdir "$AG/locks/$1" 2>/dev/null; }
+# The owner's pid is kept in the lock, so a lock left behind by a killed process (the loop was paused or
+# stopped mid-step) is taken over instead of blocking every later run.
+lock() { local d="$AG/locks/$1" n=0 owner
+  until mkdir "$d" 2>/dev/null; do
+    owner=$(cat "$d/pid" 2>/dev/null)
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then rm -rf "$d"; continue; fi
+    n=$((n+1)); [ $n -gt 60 ] && return 1; sleep 1
+  done
+  echo $$ >"$d/pid"; }
+unlock() { rm -rf "$AG/locks/$1" 2>/dev/null; }
 
 # ---------- usage caps ----------
 # Counts real model calls today (outcome rows like gate-pass or b2win are not calls).
-count_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null | grep -vE ',(gate-|b2)[a-z]*,' | grep -c ",$1"); echo "${n:-0}"; }
+count_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null | grep -vE ',(gate-|b2|flaky)[a-z]*,' | grep -c ",$1"); echo "${n:-0}"; }
 logout() { logrun "$1" "$2" "$3" 0 0; }   # outcome row: logout <id> <gate-pass|gate-fail|b2win|b2loss> <model>
 # Last-rung retries today: retry calls on ESC_MODEL, not its reviews or orchestrator wakes.
 esc_today() { local n; n=$(grep "^$(today)," "$LOGS/runs.csv" 2>/dev/null | grep -E ',retry[0-9]+,' | grep -c ",$ESC_MODEL,"); echo "${n:-0}"; }
@@ -77,6 +84,9 @@ _run_once() {
   logrun "$id" "$role" "$model" "$rc" "$(( $(date +%s)-t0 ))"
   return $rc
 }
+
+# "tokenfactory/vendor/Model-Name:level" -> "Model-Name", for messages
+short_model() { local m=${1##*/}; echo "${m%%:*}"; }
 
 WORKER_TOOLS="read,bash,edit,write,grep,find,ls"
 READ_TOOLS="read,grep,find,ls"

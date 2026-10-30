@@ -3,10 +3,11 @@
 #   bash setup.sh /path/to/your/repo            first install (copies only what's missing)
 #   bash setup.sh --update /path/to/your/repo   bring the repo's kit files up to this kit's version
 #
-# Kit-owned files (scripts, prompts, routing.sh, .agents/pi/models.json) are replaced on --update; any that
-# you had edited are backed up first to .agents/.kit-backup/<time>/. Repo-owned files are never touched:
-# .agents/local.sh (this repo's settings), .agents/secrets.sh (API keys, never copied), .agents/gates/check.sh,
-# AGENTS.md, NOTES.md, task and goal files.
+# Kit-owned files (scripts, prompts, routing.sh, catalog.json) are replaced on --update; any that you had
+# edited are backed up first to .agents/.kit-backup/<time>/. Repo-owned files are never touched:
+# .agents/local.sh (this repo's settings), .agents/pi/models.json and .agents/config.json (providers and models
+# chosen for this repo), .agents/secrets.sh (API keys, never copied), .agents/gates/check.sh, AGENTS.md,
+# NOTES.md, task and goal files.
 set -uo pipefail
 KIT=$(cd "$(dirname "$0")" && pwd)
 UPDATE=no; [ "${1:-}" = --update ] && { UPDATE=yes; shift; }
@@ -29,6 +30,7 @@ for c in gitleaks semgrep rg; do command -v "$c" >/dev/null || echo "optional, r
 repo_owned() { case "$1" in
   .agents/tasks/TEMPLATE.md) return 1 ;;
   .agents/local.sh|.agents/gates/check.sh|.agents/tasks/*|.agents/logs/*) return 0 ;;
+  .agents/pi/models.json|.agents/config.json) return 0 ;;   # providers and models chosen for this repo
   *) return 1 ;;
 esac; }
 STAMP=$(date +%Y%m%d-%H%M%S); BACKUP="$REPO/.agents/.kit-backup/$STAMP"
@@ -50,7 +52,7 @@ install_file() { # kit-relative path
 }
 while IFS= read -r rel; do install_file "$rel"
 done < <(cd "$KIT" && find .agents -type f ! -name .DS_Store ! -path '.agents/logs/*' ! -path '.agents/.kit-backup/*' \
-           ! -name 'KIT_VERSION' ! -name 'local.sh' ! -name 'secrets.sh' \
+           ! -name 'KIT_VERSION' ! -name 'local.sh' ! -name 'secrets.sh' ! -path '*/__pycache__/*' \
            \( ! -path '.agents/pi/*' -o -path '.agents/pi/models.json' \) | sort)
 chmod +x "$REPO/.agents/"*.sh "$REPO/.agents/gates/"*.sh
 [ -f "$REPO/.agents/local.sh" ] || { cp "$KIT/.agents/local.sh.example" "$REPO/.agents/local.sh"; added="$added .agents/local.sh"; }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cos.sh: cheap-model helper jobs (Nemotron Nano).
+# cos.sh: cheap-model helper jobs (route_cos in routing.sh).
 #   cos.sh pack "goal"   context summary for planning     -> .agents/context.md (orchestrate.sh runs this)
 #   cos.sh map           refresh REPO_MAP.md
 #   cos.sh status        write STATUS.md
@@ -31,7 +31,7 @@ cmd_map() {
 
 usage_table() {
   echo "| model | runs today | runs this month | failures this month |"; echo "|---|---|---|---|"
-  awk -F, -v d="$(today)" -v m="$(date +%Y-%m)" '$4 ~ /^(gate-|b2)/ {next} { if(index($1,m)==1){mo[$5]++; if($6!=0) fl[$5]++}
+  awk -F, -v d="$(today)" -v m="$(date +%Y-%m)" '$4 ~ /^(gate-|b2|flaky)/ {next} { if(index($1,m)==1){mo[$5]++; if($6!=0) fl[$5]++}
     if($1==d) td[$5]++ } END{ for(k in mo) printf "| %s | %d | %d | %d |\n", k, td[k], mo[k], fl[k] }' \
     "$LOGS/runs.csv" 2>/dev/null | sort
 }

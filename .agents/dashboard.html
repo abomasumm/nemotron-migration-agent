@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f3f0; --border: #e4e3de;
+  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7b7a75;
+  --series-1: #2a78d6; --series-2: #eb6834;
+  --good: #0ca30c; --good-ink: #006300; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --add-bg: #e6f4e6; --del-bg: #fbe9e9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+    --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f;
+    --add-bg: #13301a; --del-bg: #3a1717;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+  --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+  --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f;
+  --add-bg: #13301a; --del-bg: #3a1717;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 0 0 12px; font-weight: 600; }
+.sub { color: var(--ink-2); }
+.muted { color: var(--ink-3); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.grid { display: grid; gap: 16px; }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 16px; }
+.tile .num { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .lbl { color: var(--ink-2); font-size: 13px; }
+.bar { height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--good); border-radius: 3px; }
+.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); margin-bottom: 16px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.scroll { overflow-x: auto; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.s-good .dot { background: var(--good); } .s-good { color: var(--good-ink); }
+.s-work .dot { background: var(--series-1); }
+.s-warn .dot { background: var(--serious); }
+.s-crit .dot { background: var(--critical); }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.col { background: var(--surface-2); border-radius: 10px; padding: 10px; min-height: 120px; }
+.col h3 { font-size: 12px; margin: 2px 4px 10px; color: var(--ink-2); display: flex; justify-content: space-between; }
+.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; cursor: pointer; width: 100%; text-align: left; color: inherit; font: inherit; }
+.tcard:hover, .tcard:focus-visible { border-color: var(--series-1); outline: none; }
+.tcard.sel { border-color: var(--series-1); box-shadow: 0 0 0 1px var(--series-1); }
+.tcard .t { font-weight: 550; margin: 2px 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.gate { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
+.gate.pass { background: var(--good); } .gate.fail { background: var(--critical); }
+.detail { margin-bottom: 16px; }
+.detail .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0; }
+.kv dt { color: var(--ink-2); } .kv dd { margin: 0; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.diff { max-height: 460px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 8px 0; }
+.diff div { padding: 0 12px; white-space: pre; }
+.diff .add { background: var(--add-bg); } .diff .del { background: var(--del-bg); } .diff .hunk { color: var(--series-1); } .diff .file { font-weight: 700; padding-top: 8px; }
+.chart .row { display: grid; grid-template-columns: minmax(120px, 190px) 1fr 44px; gap: 10px; align-items: center; padding: 4px 0; }
+.chart .name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart .track { height: 14px; position: relative; }
+.chart .fill { height: 14px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.chart .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12.5px; }
+.legend { display: flex; gap: 16px; margin-bottom: 10px; font-size: 12.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); padding: 6px 9px; border-radius: 6px; font-size: 12px; display: none; z-index: 10; }
+.feed { max-height: 320px; overflow: auto; }
+.feed div { padding: 4px 0; border-bottom: 1px solid var(--border); }
+button.link { background: none; border: 0; color: var(--series-1); cursor: pointer; font: inherit; padding: 0; }
+.empty { color: var(--ink-3); padding: 12px 4px; }
+.live { display: inline-flex; gap: 6px; align-items: center; }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1 id="title">Migration dashboard</h1>
+      <div class="sub" id="subtitle">Loading…</div>
+    </div>
+    <div class="sub" id="meta"></div>
+  </header>
+
+  <section class="grid tiles" id="tiles"></section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Modules</h2>
+      <div class="scroll"><table id="modules"></table></div>
+    </div>
+    <div class="card">
+      <h2>Model calls on Token Factory</h2>
+      <div class="legend"><span><i style="background:var(--series-1)"></i>NVIDIA Nemotron</span><span><i style="background:var(--series-2)"></i>Other open models</span></div>
+      <div class="chart" id="chart"></div>
+      <details style="margin-top:10px"><summary class="muted">Show as table</summary><div class="scroll"><table id="chartTable"></table></div></details>
+    </div>
+  </section>
+
+  <h2>Tasks</h2>
+  <section class="board" id="board"></section>
+
+  <section class="card detail" id="detail" hidden></section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2 id="feedTitle">Orchestrator decisions</h2>
+      <div class="feed mono" id="feed"></div>
+    </div>
+    <div class="card">
+      <h2>Who does what</h2>
+      <table id="roles"></table>
+    </div>
+  </section>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let S = null, selected = null, isStatic = false;
+
+const GROUPS = [
+  ["Queued", ["queued", "claimed"]],
+  ["Working", ["building", "gating", "reviewing"]],
+  ["Needs a decision", ["stuck", "needs-approval", "needs-you", "needs-escalation", "conflict"]],
+  ["Merged", ["merged"]],
+  ["Dropped", ["dropped"]],
+];
+function statusBadge(st) {
+  if (!st) return '<span class="badge"><span class="dot"></span>not planned</span>';
+  const cls = st === "merged" ? "s-good" : ["building", "gating", "reviewing", "claimed"].includes(st) ? "s-work"
+    : ["stuck", "needs-you"].includes(st) ? "s-crit" : ["needs-approval", "needs-escalation", "conflict"].includes(st) ? "s-warn" : "";
+  const icon = st === "merged" ? "✓ " : cls === "s-crit" ? "✕ " : cls === "s-warn" ? "! " : "";
+  return `<span class="badge ${cls}"><span class="dot"></span>${icon}${esc(st)}</span>`;
+}
+const gateChips = (g) => g.map((x) => `<span class="gate ${x.result}" title="${esc(x.result)} · ${esc(x.model)} · ${esc(x.at)}">${x.result === "pass" ? "✓" : "✕"}</span>`).join("");
+
+function render() {
+  const s = S, mig = s.migration;
+  $("title").textContent = s.repo;
+  $("subtitle").innerHTML = mig ? `Migrating <b>${esc(mig.from)}</b> → <b>${esc(mig.to)}</b>` : "Agent pipeline";
+  $("meta").innerHTML = isStatic ? `Snapshot · ${esc(s.generated)}` : `<span class="live"><span class="dot"></span>Live</span> · updated ${esc(s.generated)}`;
+
+  const mods = mig ? mig.modules : [];
+  const migrated = mods.filter((m) => m.migrate === "merged").length;
+  const toPin = mods.filter((m) => m.pin !== null).length, pinned = mods.filter((m) => m.pin === "merged").length;
+  const merged = s.tasks.filter((t) => t.status === "merged").length;
+  const nem = s.models.filter((m) => m.tier.startsWith("Nemotron")).reduce((a, m) => a + m.calls, 0);
+  const flaky = s.tasks.filter((t) => t.flaky).length;
+  const needs = s.tasks.filter((t) => ["stuck", "needs-you", "needs-approval", "needs-escalation"].includes(t.status)).length;
+  const tile = (num, lbl, pct) => `<div class="card tile"><div class="num">${num}</div><div class="lbl">${lbl}</div>${pct != null ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
+  $("tiles").innerHTML =
+    tile(`${migrated}/${mods.length}`, "modules migrated", mods.length ? (100 * migrated) / mods.length : 0) +
+    tile(`${pinned}/${toPin}`, "untested modules pinned with tests", toPin ? (100 * pinned) / toPin : 0) +
+    tile(`${merged}/${s.tasks.length}`, `tasks merged into <span class="mono">${esc(s.integration)}</span>`, s.tasks.length ? (100 * merged) / s.tasks.length : 0) +
+    tile(s.total_calls, `model calls · ${s.total_calls ? Math.round((100 * nem) / s.total_calls) : 0}% Nemotron`) +
+    tile(needs, needs === 1 ? "task needs a decision" : "tasks need a decision") +
+    tile(flaky, flaky === 1 ? "flaky test caught" : "flaky tests caught");
+
+  $("modules").innerHTML = mods.length
+    ? `<tr><th>Module</th><th>Lines</th><th>Pinned</th><th>Migrated</th><th>Risk</th></tr>` +
+      mods.map((m) => `<tr><td class="mono">${esc(m.path)}</td><td>${m.lines}</td><td>${m.pin === null ? (m.tested ? '<span class="muted">had tests</span>' : statusBadge(null)) : statusBadge(m.pin)}</td><td>${statusBadge(m.migrate)}</td><td class="muted">${esc(m.risk)}</td></tr>`).join("")
+    : `<tr><td class="empty">No MIGRATION.md yet. Run <span class="mono">.agents/migrate.sh init</span>.</td></tr>`;
+
+  const max = Math.max(1, ...s.models.map((m) => m.calls));
+  $("chart").innerHTML = s.models.length ? s.models.map((m, i) => `<div class="row" data-i="${i}"><div class="name mono" title="${esc(m.model)}">${esc(m.model)}</div><div class="track"><div class="fill" style="width:${(100 * m.calls) / max}%;background:var(${m.tier.startsWith("Nemotron") ? "--series-1" : "--series-2"})"></div></div><div class="val">${m.calls}</div></div>`).join("") : '<div class="empty">No model calls yet.</div>';
+  $("chartTable").innerHTML = `<tr><th>Model</th><th>Tier</th><th>Calls</th><th>Errors</th><th>Avg s</th></tr>` +
+    s.models.map((m) => `<tr><td class="mono">${esc(m.model)}</td><td>${esc(m.tier)}</td><td>${m.calls}</td><td>${m.errors}</td><td>${Math.round(m.seconds / Math.max(1, m.calls))}</td></tr>`).join("");
+  document.querySelectorAll("#chart .row").forEach((row) => {
+    const m = s.models[row.dataset.i];
+    row.onmousemove = (e) => { const t = $("tip"); t.style.display = "block"; t.style.left = e.clientX + 12 + "px"; t.style.top = e.clientY + 12 + "px";
+      t.innerHTML = `<b>${esc(m.model)}</b><br>${esc(m.tier)}<br>${m.calls} calls · ${m.errors} errors · avg ${Math.round(m.seconds / Math.max(1, m.calls))}s`; };
+    row.onmouseleave = () => ($("tip").style.display = "none");
+  });
+
+  $("board").innerHTML = GROUPS.map(([name, sts]) => {
+    const ts = s.tasks.filter((t) => sts.includes(t.status));
+    return `<div class="col"><h3><span>${name}</span><span>${ts.length}</span></h3>${ts.map((t) => `
+      <button class="tcard${t.id === selected ? " sel" : ""}" data-id="${t.id}">
+        <div class="chips"><span class="mono">${t.id}</span><span class="badge">${esc(t.type)}</span>${t.risk === "high" ? '<span class="badge s-warn"><span class="dot"></span>! high risk</span>' : ""}${t.flaky ? '<span class="badge s-warn"><span class="dot"></span>! flaky</span>' : ""}</div>
+        <div class="t">${esc(t.title)}</div>
+        <div class="chips">${statusBadge(t.status)} ${gateChips(t.gates)}</div>
+      </button>`).join("") || '<div class="empty">—</div>'}</div>`;
+  }).join("");
+  document.querySelectorAll(".tcard").forEach((b) => (b.onclick = () => { selected = b.dataset.id; render(); showDetail(); }));
+
+  $("feedTitle").textContent = `Orchestrator decisions (${s.orchestrator || "orchestrator"})`;
+  $("feed").innerHTML = s.decisions.length ? s.decisions.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("") : '<div class="empty">No orchestrator wakes yet.</div>';
+  $("roles").innerHTML = Object.entries(s.roles).map(([r, m]) => `<tr><td>${esc(r)}</td><td class="mono">${esc(m)}</td></tr>`).join("");
+  if (selected) showDetail(false);
+}
+
+async function showDetail(loadDiff = true) {
+  const t = S.tasks.find((x) => x.id === selected), el = $("detail");
+  if (!t) { el.hidden = true; return; }
+  el.hidden = false;
+  const old = el.querySelector(".diff");
+  const v = Object.entries(t.verdicts).filter(([, x]) => x).map(([k, x]) => `${k}: <b class="${x === "PASS" ? "s-good" : ""}">${x === "PASS" ? "✓ " : ""}${esc(x)}</b>`).join(" · ") || '<span class="muted">none yet</span>';
+  el.innerHTML = `
+    <div class="head"><h2 style="margin:0">${t.id} · ${esc(t.title)}</h2><div class="chips">${statusBadge(t.status)}<button class="link" id="close">Close</button></div></div>
+    <dl class="kv">
+      <dt>Type / risk</dt><dd>${esc(t.type)} / ${esc(t.risk)}</dd>
+      <dt>Files</dt><dd class="mono">${esc(t.files)}</dd>
+      ${t.after ? `<dt>After</dt><dd class="mono">${esc(t.after)}</dd>` : ""}
+      <dt>Gates</dt><dd class="chips">${gateChips(t.gates) || '<span class="muted">not run yet</span>'}</dd>
+      <dt>Verdicts</dt><dd>${v}</dd>
+      ${t.flaky ? `<dt>Flaky test</dt><dd><pre>${esc(t.flaky_note || "Diagnosis pending")}</pre></dd>` : ""}
+    </dl>
+    <div class="grid two" style="margin-bottom:0">
+      <div><h2>Brief</h2><pre style="max-height:320px;overflow:auto">${esc(t.brief)}</pre></div>
+      <div><h2>Model calls</h2><table>${t.calls.map((c) => `<tr><td>${esc(c.role)}</td><td class="mono">${esc(c.model)}</td><td>${c.rc ? '<span class="badge s-crit"><span class="dot"></span>✕ exit ' + c.rc + "</span>" : c.seconds + "s"}</td></tr>`).join("") || '<tr><td class="muted">none yet</td></tr>'}</table></div>
+    </div>
+    <h2 style="margin-top:16px">Log</h2><pre class="mono">${esc(t.log.join("\n"))}</pre>
+    <h2 style="margin-top:16px">Diff</h2><div class="diff mono" id="diff"></div>`;
+  $("close").onclick = () => { selected = null; el.hidden = true; render(); };
+  if (!loadDiff && old) { $("diff").replaceWith(old); return; }
+  let text = "";
+  try { const r = await fetch(`diffs/${t.id}.diff`, { cache: "no-store" }); text = r.ok ? await r.text() : ""; } catch (e) {}
+  $("diff").innerHTML = text ? text.split("\n").map((l) => {
+    const c = l.startsWith("diff --git") ? "file" : l.startsWith("@@") ? "hunk" : l.startsWith("+") && !l.startsWith("+++") ? "add" : l.startsWith("-") && !l.startsWith("---") ? "del" : "";
+    return `<div class="${c}">${esc(l) || " "}</div>`; }).join("") : '<div class="empty">No diff yet.</div>';
+}
+
+async function load() {
+  try {
+    const r = await fetch("state.json", { cache: "no-store" });
+    S = await r.json(); isStatic = !!S.static; render();
+  } catch (e) { $("subtitle").textContent = "Could not load state.json"; }
+  if (!isStatic) setTimeout(load, 5000);
+}
+load();
+</script>
+</body>
+</html>

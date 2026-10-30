@@ -13,13 +13,14 @@ awk -F, -v s="$since" '
   $4=="gate-fail" { gf[$5]++; seen[$5]=1; next }
   $4=="b2win"     { bw[$5]++; seen[$5]=1; next }
   $4=="b2loss"    { bl[$5]++; seen[$5]=1; next }
+  $4=="flaky"     { fk[$5]++; seen[$5]=1; next }
   { n[$5]++; t[$5]+=$7; if ($6!=0) e[$5]++; seen[$5]=1 }
   END {
-    printf "%-46s %6s %7s %7s %10s %10s\n", "model", "calls", "errors", "avg s", "gates pass", "b2 wins"
+    printf "%-46s %6s %7s %7s %10s %10s %6s\n", "model", "calls", "errors", "avg s", "gates pass", "b2 wins", "flaky"
     for (m in seen) {
       g = gp[m]+gf[m]; b = bw[m]+bl[m]
-      printf "%-46s %6d %6.0f%% %7.0f %10s %10s\n", m, n[m], (n[m]?100*e[m]/n[m]:0), (n[m]?t[m]/n[m]:0),
-        (g? sprintf("%d/%d", gp[m], g) : "-"), (b? sprintf("%d/%d", bw[m], b) : "-")
+      printf "%-46s %6d %6.0f%% %7.0f %10s %10s %6d\n", m, n[m], (n[m]?100*e[m]/n[m]:0), (n[m]?t[m]/n[m]:0),
+        (g? sprintf("%d/%d", gp[m], g) : "-"), (b? sprintf("%d/%d", bw[m], b) : "-"), fk[m]
     }
   }' "$LOGS/runs.csv" | { read -r h; echo "$h"; sort; }
 echo

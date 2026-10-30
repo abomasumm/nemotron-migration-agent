@@ -75,6 +75,7 @@ build_prompt() { # promptname taskfile extrafile out
   {
     cat "$PROMPTS/$1.md"; echo
     [ -f "$ROOT/AGENTS.md" ] && { echo "# AGENTS.md"; cat "$ROOT/AGENTS.md"; echo; }
+    [ -f "$ROOT/MIGRATION.md" ] && { echo "# MIGRATION.md"; cat "$ROOT/MIGRATION.md"; echo; }
     cat "$TASKS/$(fm_get "$2" id).pack.md" 2>/dev/null; echo
     echo "# Task brief"; cat "$2"
     [ -n "$3" ] && [ -s "$3" ] && { echo; echo "# Read this first: previous attempt"; cat "$3"; }
@@ -112,9 +113,32 @@ write_tests() { # id taskfile tests-wt worker-model
 
 add_tests() { [ -f "$TASKS/$2.red" ] && git -C "$1" merge -q --no-edit "task/$2-tests" >/dev/null 2>&1; true; }
 
+gates_once() { # wt taskfile logfile
+  ( cd "$1" && export BASE="$INTEGRATION_BRANCH" TASK_FILE="$2" TEST_GLOBS="$TEST_GLOBS" &&
+      bash "$AG/gates/check.sh" && bash "$AG/gates/scope.sh" && bash "$AG/gates/migration.sh" &&
+      bash "$AG/gates/security.sh" ) >"$3" 2>&1
+}
+
+# Gates are deterministic except tests. If a failed run passes on a rerun of the same code, a test is
+# flaky: the attempt passes with a warning instead of failing the worker, and the helper model writes a diagnosis.
 run_gates() { # wt id taskfile logname
-  ( cd "$1" && export BASE="$INTEGRATION_BRANCH" TASK_FILE="$3" TEST_GLOBS="$TEST_GLOBS" &&
-      bash "$AG/gates/check.sh" && bash "$AG/gates/scope.sh" && bash "$AG/gates/security.sh" ) >"$TASKS/$4" 2>&1
+  local w=$1 id=$2 f=$3 log="$TASKS/$4" n
+  gates_once "$w" "$f" "$log" && return 0
+  cp "$log" "$log.first"
+  for n in $(seq 1 "$FLAKY_RERUNS"); do
+    gates_once "$w" "$f" "$log" || continue
+    tlog "$f" "flaky: gates failed, then passed on rerun $n of the same code"
+    logout "$id" flaky "$(fm_get "$f" model)"
+    diagnose_flaky "$id" "$w" "$log.first"
+    return 0
+  done
+  cp "$log.first" "$log"; return 1
+}
+
+diagnose_flaky() { # id wt failedlog
+  local pf="$TASKS/$1.flaky.prompt"
+  { cat "$PROMPTS/flaky.md"; echo; echo "# Failing run (it passed when rerun on the same code)"; tail -n 120 "$3"; } >"$pf"
+  run_model "$1" diagnose "$(route_cos)" "$READ_TOOLS" "$pf" "$TASKS/$1.flaky.md" "$2" 5m >/dev/null 2>&1
 }
 
 task_risk() { [ -n "$FORCE_RISK" ] && echo "$FORCE_RISK" || fm_get "$1" risk; }
@@ -309,7 +333,7 @@ cmd_run() {
     [ "$(fm_get "$f" status)" = queued ] || continue
     nb=$(fm_get "$f" not_before); [ -n "$nb" ] && [ "$(date +%s)" -lt "$nb" ] && continue
     id=$(fm_get "$f" id)
-    ok=1; for dep in $(fm_get "$f" after | tr ',' ' '); do
+    ok=1; for dep in $(fm_get "$f" after | tr ',[]' '   '); do
       [ "$(fm_get "$TASKS/$dep.md" status 2>/dev/null)" = merged ] || ok=0; done
     [ "$ok" = 1 ] || continue
     m=$(route_worker "$(fm_get "$f" type)")

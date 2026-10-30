@@ -26,11 +26,30 @@ Rules
    - `risk: high` for auth, payments, data loss, schema or migrations, shared/core modules, public APIs. Only `low` or `high` exist: anything else (e.g. `medium`) is treated as `low`, with no senior review or sign-off.
    - `logic: yes` when behaviour can be tested; a separate agent writes failing tests first.
    - `files:` comma-separated paths or globs the worker may change. Be precise; the scope guard enforces it.
-   - `after:` task ids that must merge first. `profile:` only if the goal's profile says so.
+   - `after:` task ids that must merge first, comma-separated; leave it empty when there are none (never `[]`). `profile:` only if the goal's profile says so.
    - Acceptance criteria must be testable. Name functions and symbols in `backticks`.
 4. If the goal needs a decision only the owner can make (product choice, credentials, a missing dependency),
    write the tasks that don't depend on it and put the question in your report.
 5. Run `.agents/orchestrate.sh planned G-NNN`.
+
+## plan G-NNN with `mode: migration`
+The brief includes MIGRATION.md: what to migrate from and to, what must not change, the modules in dependency
+order, which ones have tests, and the commands. Plan in two phases, using only these task types:
+1. **Pin** the behaviour no existing test covers (MIGRATION.md lists modules without tests and the names of
+   the existing tests): one `type: pin` task per module, or per endpoint group for an HTTP API, `risk: low`,
+   `logic: no`. Pin through the same public boundary the existing tests use (e.g. their helpers). `files:` lists the new test file(s) only, e.g. `test/tax.test.js`, in the
+   project's test folder and naming style. Acceptance: name the exported functions to pin and the behaviour
+   MIGRATION.md says must not change (including odd results). Pin tasks have no `after:`.
+2. **Migrate** one module per task, `type: migrate`, `logic: no`, in the dependency order from MIGRATION.md
+   (leaves first), following its Approach section. When the migration swaps a framework or library that
+   modules are wired through (e.g. Express to Fastify), modules that cannot run half-migrated move together:
+   first convert the framework-independent modules one by one, then switch the framework in ONE task that
+   covers the app wiring, the server and every route, keeping the public boundary identical. `files:` lists the module's old path AND its new path (e.g. `src/tax.js, src/tax.ts`), plus
+   any file whose imports must change. `after:` lists every pin task, and the migrate task of each module it
+   imports. `risk: high` for modules MIGRATION.md marks as critical, otherwise `low`. Acceptance: converted as
+   MIGRATION.md says, exported names unchanged, all existing tests pass unchanged, typecheck passes.
+Never plan a task that edits existing tests or changes behaviour. If MIGRATION.md leaves a decision open
+(e.g. strictness), follow its defaults and mention it in your report.
 
 ## triage T-NNN (the whole retry chain failed)
 Read the digest in the brief: the brief, reviewer verdicts, last failure, gates output. Then do exactly one:

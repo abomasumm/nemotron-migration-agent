@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Agent</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f3f0; --border: #e4e3de;
+  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7b7a75; --accent: #2a78d6; --accent-ink: #ffffff;
+  --series-1: #2a78d6; --series-2: #eb6834;
+  --good: #0ca30c; --good-ink: #006300; --serious: #ec835a; --critical: #d03b3b; --crit-ink: #b42323;
+  --add-bg: #e6f4e6; --del-bg: #fbe9e9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
+    --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f; --crit-ink: #ff8a8a;
+    --add-bg: #13301a; --del-bg: #3a1717;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+  --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
+  --series-1: #3987e5; --series-2: #d95926; --good-ink: #5fd35f; --crit-ink: #ff8a8a;
+  --add-bg: #13301a; --del-bg: #3a1717;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+a { color: var(--accent); }
+main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 72px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 18px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); }
+.brand small { font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 0 0 12px; font-weight: 600; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); } .muted { color: var(--ink-3); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; gap: 16px; }
+.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 18px; }
+.step { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 5px 12px; text-decoration: none; font-size: 13px; }
+.step.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.step b { color: var(--ink-3); margin-right: 4px; font-weight: 600; }
+.step.ok b { color: var(--good-ink); }
+label { display: block; font-weight: 550; margin: 12px 0 4px; }
+input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+textarea { min-height: 64px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row > input { flex: 1; min-width: 220px; }
+button { font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.danger { color: var(--crit-ink); }
+button:disabled { opacity: .5; cursor: default; }
+button.link { background: none; border: 0; padding: 0; color: var(--accent); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.scroll { overflow-x: auto; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.s-good .dot { background: var(--good); } .s-good { color: var(--good-ink); }
+.s-work .dot { background: var(--series-1); }
+.s-warn .dot { background: var(--serious); }
+.s-crit .dot { background: var(--critical); } .s-crit { color: var(--crit-ink); }
+.note { border-left: 3px solid var(--serious); background: var(--surface-2); padding: 8px 12px; border-radius: 6px; margin: 10px 0; }
+.note.bad { border-color: var(--critical); }
+.note.good { border-color: var(--good); }
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.log { max-height: 260px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 10px; }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.tile { margin: 0; } .tile .num { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .lbl { color: var(--ink-2); font-size: 13px; }
+.bar { height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--good); border-radius: 3px; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.col { background: var(--surface-2); border-radius: 10px; padding: 10px; min-height: 100px; }
+.col h3 { font-size: 12px; margin: 2px 4px 10px; color: var(--ink-2); display: flex; justify-content: space-between; }
+.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; cursor: pointer; width: 100%; text-align: left; color: inherit; font: inherit; }
+.tcard:hover, .tcard:focus-visible { border-color: var(--accent); outline: none; }
+.tcard.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.tcard .t { font-weight: 550; margin: 2px 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.gate { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
+.gate.pass { background: var(--good); } .gate.fail { background: var(--critical); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0; }
+.kv dt { color: var(--ink-2); } .kv dd { margin: 0; }
+.diff { max-height: 460px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 8px 0; }
+.diff div { padding: 0 12px; white-space: pre; }
+.diff .add { background: var(--add-bg); } .diff .del { background: var(--del-bg); } .diff .hunk { color: var(--series-1); } .diff .file { font-weight: 700; padding-top: 8px; }
+.chart .crow { display: grid; grid-template-columns: minmax(120px, 190px) 1fr 44px; gap: 10px; align-items: center; padding: 4px 0; }
+.chart .name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart .fill { height: 14px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.chart .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12.5px; }
+.legend { display: flex; gap: 16px; margin-bottom: 10px; font-size: 12.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); padding: 6px 9px; border-radius: 6px; font-size: 12px; display: none; z-index: 10; }
+.feed { max-height: 320px; overflow: auto; } .feed div { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.empty { color: var(--ink-3); padding: 12px 4px; }
+.qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+@media (max-width: 760px) { .qgrid { grid-template-columns: 1fr; } }
+.check { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; }
+.check input { width: auto; margin-top: 3px; }
+.roles .rrow { display: grid; grid-template-columns: minmax(160px, 1.1fr) minmax(200px, 1.5fr) 110px 100px 110px; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.roles .rrow.head { font-size: 12px; color: var(--ink-2); font-weight: 600; padding-top: 0; }
+@media (max-width: 760px) { .roles .rrow { grid-template-columns: 1fr 1fr; } .roles .rrow.head { display: none; } .roles .rrow > div:first-child { grid-column: 1 / -1; } }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--page); padding: 9px 14px; border-radius: 8px; display: none; max-width: 90vw; z-index: 20; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const TOKEN = "__APP_TOKEN__";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+async function api(path, body) {
+  const r = await fetch("/api/" + path, { method: body === undefined ? "GET" : "POST", headers: { "X-App-Token": TOKEN, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => ({ error: "bad response" }));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 4500); }
+async function waitJob(job, logEl) {
+  while (true) {
+    const j = await api("jobs/" + job.id);
+    if (logEl) { logEl.textContent = j.log; logEl.scrollTop = logEl.scrollHeight; }
+    if (j.status !== "running") return j;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
+let timer = null;
+function route() {
+  clearTimeout(timer);
+  const [_, a, pid, step] = location.hash.split("/");
+  if (a === "p" && pid) return projectPage(pid, step || "questions");
+  return home();
+}
+window.addEventListener("hashchange", route);
+const header = (extra = "") => `<div class="top"><a class="brand" href="#/">Migration Agent<small>on Nebius Token Factory</small></a>${extra}</div>`;
+
+// ---------- home ----------
+async function home() {
+  const projects = await api("projects").catch(() => []);
+  $("app").innerHTML = header() + `
+    <div class="card">
+      <h1>Migrate a codebase without breaking it</h1>
+      <p class="sub">Point the agent at a repo. It pins today's behaviour with tests, plans the migration in safe steps, has open models make the edits, and nothing merges until the tests stay green and NVIDIA Nemotron has reviewed the change. You merge the result.</p>
+      <label for="src">GitHub URL or local path of a git repo</label>
+      <div class="row"><input id="src" placeholder="https://github.com/you/legacy-app  or  ~/code/legacy-app"><button class="primary" id="add">Add repo</button></div>
+      <p class="muted" style="margin-top:8px">A GitHub URL is cloned into the workspace. A local path is used in place: the agent's files are committed to that repo.</p>
+      <pre class="log mono" id="log" hidden></pre>
+    </div>
+    <div class="card"><h2>Projects</h2>${projects.length ? `<table><tr><th>Name</th><th>Path</th><th>Loop</th><th></th></tr>${projects.map((p) => `<tr><td><a href="#/p/${p.id}/questions">${esc(p.name)}</a></td><td class="mono muted">${esc(p.path)}</td><td>${p.loop ? '<span class="badge s-work"><span class="dot"></span>running</span>' : '<span class="muted">stopped</span>'}</td><td><a href="#/p/${p.id}/dashboard">Dashboard</a></td></tr>`).join("")}</table>` : '<div class="empty">No projects yet.</div>'}</div>`;
+  $("add").onclick = async () => {
+    const log = $("log"); log.hidden = false; log.textContent = "Starting…"; $("add").disabled = true;
+    try {
+      const job = await api("projects", { source: $("src").value });
+      const done = await waitJob(job, log);
+      if (done.status === "done") location.hash = `#/p/${done.result.id}/questions`;
+      else toast("Could not add the repo; see the log");
+    } catch (e) { toast(e.message); }
+    $("add").disabled = false;
+  };
+}
+
+// ---------- project ----------
+const STEPS = [["questions", "Questions"], ["providers", "Providers"], ["models", "Models"], ["start", "Start"], ["dashboard", "Dashboard"]];
+async function projectPage(pid, step) {
+  let p;
+  try { p = await api("projects/" + pid); } catch (e) { $("app").innerHTML = header() + `<div class="card note bad">${esc(e.message)}</div>`; return; }
+  const done = { questions: !!p.migration, start: p.started, dashboard: p.started };
+  $("app").innerHTML = header(`<span class="sub">${p.loop ? '<span class="badge s-work"><span class="dot"></span>loop running</span>' : '<span class="badge"><span class="dot"></span>loop stopped</span>'}</span>`) +
+    `<h1>${esc(p.name)}</h1><div class="mono muted">${esc(p.path)}</div>
+     <nav class="steps">${STEPS.map(([k, n], i) => `<a class="step ${k === step ? "on" : ""} ${done[k] ? "ok" : ""}" href="#/p/${pid}/${k}"><b>${done[k] ? "✓" : i + 1}</b>${n}</a>`).join("")}</nav>
+     <div id="body"></div>`;
+  ({ questions: questionsStep, providers: providersStep, models: modelsStep, start: startStep, dashboard: dashboardStep }[step] || questionsStep)(p);
+}
+
+async function questionsStep(p) {
+  const b = $("body"), q = p.questions;
+  if (!q) {
+    b.innerHTML = `<div class="card"><h2>1 · Analyse the repo</h2><p>The agent reads the repo (stack, commands, modules, which ones have tests, import order), runs the tests to check the starting point is green, and asks the helper model to suggest answers.</p><button class="primary" id="prep">Analyse repo</button><pre class="log mono" id="log" hidden style="margin-top:12px"></pre></div>`;
+    $("prep").onclick = async () => { $("prep").disabled = true; $("log").hidden = false;
+      try { const j = await waitJob(await api(`projects/${p.id}/prepare`, {}), $("log")); if (j.status === "done") route(); else toast("Analysis failed; see the log"); }
+      catch (e) { toast(e.message); } $("prep").disabled = false; };
+    return;
+  }
+  const s = q.summary;
+  b.innerHTML = `
+    <div class="card"><h2>What the agent found</h2>
+      <div class="row">${[`${esc(s.language)}${s.module_style ? " (" + esc(s.module_style) + ")" : ""}`, `${s.modules} modules`, `test runner: ${esc(s.test_runner || "none")}`, ...Object.entries(s.commands || {}).map(([k, v]) => `${esc(k)}: <span class="mono">${esc(v)}</span>`)].map((x) => `<span class="badge">${x}</span>`).join("")}
+      ${q.baseline === "green" ? '<span class="badge s-good"><span class="dot"></span>✓ baseline tests pass</span>' : '<span class="badge s-crit"><span class="dot"></span>✕ baseline tests fail</span>'}</div>
+      ${q.baseline !== "green" ? '<div class="note bad">The tests fail on the current code. Fix them first: a migration can only be proven against a green baseline.</div>' : ""}
+      ${(q.warnings || []).map((w) => `<div class="note">! ${esc(w)}</div>`).join("")}
+      <p class="muted" style="margin-top:10px">Modules without tests: ${s.untested.map((u) => `<span class="mono">${esc(u)}</span>`).join(", ") || "none"}</p>
+      <button class="link" id="reprep">Analyse again</button></div>
+    <div class="card"><h2>2 · Answer the migration questions</h2><p class="sub">Suggestions are pre-filled. Separate list items with “;”.</p>
+      <div class="qgrid">${q.questions.map((x, i) => `<div><label for="q_${x.key}">${i + 1}. ${esc(x.text)}</label><textarea id="q_${x.key}" rows="${x.default.length > 120 ? 5 : 2}">${esc(x.default)}</textarea></div>`).join("")}</div>
+      <div class="row" style="margin-top:14px"><button class="primary" id="write">Write MIGRATION.md</button></div></div>
+    <div class="card" id="migcard" ${p.migration ? "" : "hidden"}><h2>3 · Review MIGRATION.md</h2><p class="sub">The planner and every worker read this file. Fix anything wrong, then save.</p>
+      <textarea id="mig" class="mono" style="min-height:420px">${esc(p.migration || "")}</textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="save">Save</button><a href="#/p/${p.id}/providers">Next: providers →</a></div></div>`;
+  $("reprep").onclick = async () => { $("reprep").disabled = true; toast("Analysing… (about a minute)"); try { await waitJob(await api(`projects/${p.id}/prepare`, {})); route(); } catch (e) { toast(e.message); } };
+  $("write").onclick = async () => {
+    const answers = Object.fromEntries(q.questions.map((x) => [x.key, $("q_" + x.key).value]));
+    try { const r = await api(`projects/${p.id}/answers`, { answers }); $("mig").value = r.migration; $("migcard").hidden = false; $("migcard").scrollIntoView({ behavior: "smooth" }); toast("MIGRATION.md written"); } catch (e) { toast(e.message); }
+  };
+  $("save").onclick = async () => { await api(`projects/${p.id}/migration`, { text: $("mig").value }); toast("Saved"); };
+}
+
+async function providersStep(p) {
+  const provs = await api(`projects/${p.id}/providers`);
+  $("body").innerHTML = `
+    <div class="card"><h2>Connected providers</h2><p class="sub">Any OpenAI-compatible endpoint. Keys are stored only on this machine, in the project's git-ignored <span class="mono">.agents/secrets.sh</span>.</p>
+      <table><tr><th>Provider</th><th>Base URL</th><th>Key</th><th>Models</th><th></th></tr>${provs.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td class="mono">${esc(x.baseUrl)}</td><td>${x.keySet ? '<span class="badge s-good"><span class="dot"></span>✓ set</span>' : '<span class="badge s-crit"><span class="dot"></span>✕ missing</span>'} <span class="mono muted">${esc(x.keyEnv)}</span></td><td>${x.models.length}</td><td><button class="link" data-pick="${esc(x.name)}">Choose models</button> · <button class="link" data-edit="${esc(x.name)}">Edit</button></td></tr>`).join("") || '<tr><td class="empty">None yet.</td></tr>'}</table></div>
+    <div class="card"><h2 id="ftitle">Add a provider</h2>
+      <div class="qgrid"><div><label for="pn">Name</label><input id="pn" placeholder="tokenfactory"></div><div><label for="pu">Base URL</label><input id="pu" placeholder="https://api.tokenfactory.nebius.com/v1"></div>
+      <div><label for="pk">Key variable</label><input id="pk" placeholder="NEBIUS_API_KEY"></div><div><label for="pv">API key (leave empty to keep the stored one)</label><input id="pv" type="password" autocomplete="off"></div></div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="psave">Save provider</button></div></div>
+    <div class="card" id="pickcard" hidden></div>`;
+  document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { const x = provs.find((y) => y.name === b.dataset.edit); $("pn").value = x.name; $("pu").value = x.baseUrl; $("pk").value = x.keyEnv; $("ftitle").textContent = "Edit " + x.name; $("pn").scrollIntoView({ behavior: "smooth" }); }));
+  document.querySelectorAll("[data-pick]").forEach((b) => (b.onclick = () => pickModels(p, provs.find((y) => y.name === b.dataset.pick))));
+  $("psave").onclick = async () => {
+    try { await api(`projects/${p.id}/providers`, { name: $("pn").value.trim(), baseUrl: $("pu").value.trim(), keyEnv: $("pk").value.trim(), key: $("pv").value.trim() }); toast("Provider saved"); route(); } catch (e) { toast(e.message); }
+  };
+}
+
+async function pickModels(p, prov) {
+  const c = $("pickcard"); c.hidden = false; c.innerHTML = `<h2>Models from ${esc(prov.name)}</h2><p class="muted">Loading the model list…</p>`; c.scrollIntoView({ behavior: "smooth" });
+  let list;
+  try { list = await api(`projects/${p.id}/providers/${prov.name}/available`); } catch (e) { c.innerHTML = `<div class="note bad">${esc(e.message)}</div>`; return; }
+  list.sort((a, b) => (b.index ?? -1) - (a.index ?? -1));
+  c.innerHTML = `<h2>Models from ${esc(prov.name)}</h2><p class="sub">Scores: Artificial Analysis Intelligence Index v5 (higher is smarter) and its cost per task. Models without a score still work.</p>
+    <div class="scroll"><table><tr><th></th><th>Model</th><th>Family</th><th>Index</th><th>$ / task</th><th>$ per 1M in / out</th></tr>${list.map((m) => `<tr><td><input type="checkbox" value="${esc(m.id)}" ${prov.models.includes(m.id) ? "checked" : ""} aria-label="${esc(m.id)}"></td><td><b>${esc(m.name || "")}</b> <span class="mono muted">${esc(m.id)}</span></td><td>${esc(m.family || "")}</td><td>${m.index ?? "—"}</td><td>${m.cost_per_task != null ? "$" + m.cost_per_task.toFixed(2) : "—"}</td><td>${m.price_in != null ? `${m.price_in} / ${m.price_out}` : "—"}</td></tr>`).join("")}</table></div>
+    <div class="row" style="margin-top:12px"><button class="primary" id="msave">Use selected models</button><a href="#/p/${p.id}/models">Next: assign models to roles →</a></div>`;
+  $("msave").onclick = async () => { const ids = [...c.querySelectorAll("input:checked")].map((i) => i.value); await api(`projects/${p.id}/providers/${prov.name}/models`, { models: ids }); toast(`${ids.length} models saved`); };
+}
+
+async function modelsStep(p) {
+  const m = await api(`projects/${p.id}/models`);
+  const cat = Object.fromEntries(m.catalog.map((x) => [x.id, x]));
+  const info = (model) => cat[(model || "").split(":")[0].split("/").slice(1).join("/")] || {};
+  const fam = (model) => info(model).family || ((model || "").split("/")[1] || "").toLowerCase();
+  const levels = ["", "low", "medium", "high", "xhigh", "max"];
+  $("body").innerHTML = `
+    <div class="card"><h2>Model per role</h2><p class="sub">The pipeline's roles are fixed; pick the model for each. Rules: the judge and reviewer must be a family no worker uses, and the two workers must be different families, so no model ever grades its own family's work.</p>
+      <div class="roles"><div class="rrow head"><div>Role</div><div>Model</div><div>Effort</div><div>Family</div><div>Index · $/task</div></div>
+      ${m.roles.map((r) => { const cur = m.current[r.key] || ""; const [base, lvl] = cur.includes(":") ? [cur.slice(0, cur.lastIndexOf(":")), cur.slice(cur.lastIndexOf(":") + 1)] : [cur, ""];
+        const opts = m.available.map((a) => a.model); if (base && !opts.includes(base)) opts.unshift(base);
+        return `<div class="rrow"><div><b>${esc(r.name)}</b><div class="muted">${esc(r.does)}</div></div>
+        <div><select id="r_${r.key}" aria-label="${esc(r.name)} model">${opts.map((o) => `<option value="${esc(o)}" ${o === base ? "selected" : ""}>${esc(info(o).name || o)}</option>`).join("")}</select></div>
+        <div><select id="e_${r.key}" aria-label="${esc(r.name)} effort">${levels.map((l) => `<option ${l === (lvl || "") ? "selected" : ""} value="${l}">${l || "default"}</option>`).join("")}</select></div>
+        <div id="f_${r.key}"></div><div id="s_${r.key}" class="muted"></div></div>`; }).join("")}</div>
+      <div id="problems"></div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="rsave">Save roles</button><button id="rtest">Test all models</button><a href="#/p/${p.id}/start">Next: start →</a></div>
+      <pre class="log mono" id="log" hidden style="margin-top:12px"></pre>
+      <p class="muted" style="margin-top:10px">Scores from <a href="${esc(m.source?.scores)}" target="_blank" rel="noopener">Artificial Analysis</a>, prices from <a href="${esc(m.source?.prices)}" target="_blank" rel="noopener">Token Factory</a>, checked ${esc(m.source?.checked)}.</p></div>`;
+  const roles = () => Object.fromEntries(m.roles.map((r) => [r.key, $("r_" + r.key).value + ($("e_" + r.key).value ? ":" + $("e_" + r.key).value : "")]));
+  const refresh = () => {
+    const rs = roles(), f = Object.fromEntries(Object.entries(rs).map(([k, v]) => [k, fam(v)])), probs = [];
+    ["worker_a", "worker_b", "tester"].forEach((k) => { if (f.reviewer === f[k]) probs.push(`The judge/reviewer shares the ${f[k]} family with ${k.replace("_", " ")}.`); });
+    if (f.worker_a === f.worker_b) probs.push("Worker A and worker B are the same family.");
+    m.roles.forEach((r) => { const i = info(rs[r.key]); $("f_" + r.key).innerHTML = `<span class="badge">${esc(f[r.key])}</span>`; $("s_" + r.key).textContent = i.index != null ? `${i.index} · $${i.cost_per_task.toFixed(2)}` : "not scored"; });
+    $("problems").innerHTML = probs.map((x) => `<div class="note bad">✕ ${esc(x)}</div>`).join("") || '<div class="note good">✓ Families are separated: no model reviews its own family\'s work.</div>';
+    $("rsave").disabled = probs.length > 0;
+  };
+  m.roles.forEach((r) => { $("r_" + r.key).onchange = refresh; $("e_" + r.key).onchange = refresh; });
+  refresh();
+  $("rsave").onclick = async () => { try { await api(`projects/${p.id}/models`, { roles: roles() }); toast("Roles saved"); } catch (e) { toast(e.message); } };
+  $("rtest").onclick = async () => { $("rtest").disabled = true; $("log").hidden = false; try { await waitJob(await api(`projects/${p.id}/test-models`, {}), $("log")); } catch (e) { toast(e.message); } $("rtest").disabled = false; };
+}
+
+async function startStep(p) {
+  const [provs, m] = await Promise.all([api(`projects/${p.id}/providers`), api(`projects/${p.id}/models`)]);
+  const checks = [[!!p.migration, "MIGRATION.md written", "questions"], [provs.some((x) => x.keySet && x.models.length), "A provider with a key and models", "providers"], [m.problems.length === 0, "Model families separated", "models"], [p.questions?.baseline === "green", "Baseline tests pass", "questions"]];
+  const ok = checks.every((c) => c[0]);
+  $("body").innerHTML = `<div class="card"><h2>Ready to start?</h2>
+    ${checks.map(([good, label, step]) => `<div class="check">${good ? '<span class="badge s-good"><span class="dot"></span>✓</span>' : '<span class="badge s-crit"><span class="dot"></span>✕</span>'} <span>${esc(label)} ${good ? "" : `· <a href="#/p/${p.id}/${step}">fix</a>`}</span></div>`).join("")}
+    ${p.started ? '<div class="note">This project already has a migration goal. Starting again queues another one.</div>' : ""}
+    <label for="prof">Profile</label><select id="prof" style="max-width:420px"><option value="">default: two workers on migrate tasks, extra review for critical modules</option><option value="risky">risky: every task high risk, two reviews and sign-off on everything</option><option value="fast">fast: one worker, no judge, three tasks in parallel</option></select>
+    <p class="muted" style="margin-top:10px">Starting commits MIGRATION.md and the model choices, queues the goal and starts the loop. The planner picks it up within a minute.</p>
+    <div class="row"><button class="primary" id="go" ${ok ? "" : "disabled"}>Start migration</button></div></div>`;
+  $("go").onclick = async () => { $("go").disabled = true; try { await api(`projects/${p.id}/start`, { profile: $("prof").value }); location.hash = `#/p/${p.id}/dashboard`; } catch (e) { toast(e.message); $("go").disabled = false; } };
+}
+
+// ---------- dashboard ----------
+const GROUPS = [["Queued", ["queued", "claimed"]], ["Working", ["building", "gating", "reviewing"]], ["Needs a decision", ["stuck", "needs-approval", "needs-you", "needs-escalation", "conflict"]], ["Merged", ["merged"]], ["Dropped", ["dropped"]]];
+function statusBadge(st) {
+  if (!st) return '<span class="badge"><span class="dot"></span>not planned</span>';
+  const cls = st === "merged" ? "s-good" : ["building", "gating", "reviewing", "claimed"].includes(st) ? "s-work" : ["stuck", "needs-you"].includes(st) ? "s-crit" : ["needs-approval", "needs-escalation", "conflict"].includes(st) ? "s-warn" : "";
+  const icon = st === "merged" ? "✓ " : cls === "s-crit" ? "✕ " : cls === "s-warn" ? "! " : "";
+  return `<span class="badge ${cls}"><span class="dot"></span>${icon}${esc(st)}</span>`;
+}
+const gateChips = (g) => g.map((x) => `<span class="gate ${x.result}" title="${esc(x.result)} · ${esc(x.model)} · ${esc(x.at)}">${x.result === "pass" ? "✓" : "✕"}</span>`).join("");
+let selected = null;
+async function dashboardStep(p) {
+  let s;
+  if (!$("body").children.length) $("body").innerHTML = '<div class="empty">Loading the dashboard…</div>';
+  try { s = await api(`projects/${p.id}/state`); } catch (e) { $("body").innerHTML = `<div class="note bad">${esc(e.message)}</div>`; return; }
+  if (!location.hash.endsWith("/dashboard")) return;
+  const mig = s.migration, mods = mig ? mig.modules : [];
+  const migrated = mods.filter((m) => m.migrate === "merged").length, toPin = mods.filter((m) => m.pin !== null).length, pinned = mods.filter((m) => m.pin === "merged").length;
+  const merged = s.tasks.filter((t) => t.status === "merged").length;
+  const nem = s.models.filter((m) => m.tier.startsWith("Nemotron")).reduce((a, m) => a + m.calls, 0);
+  const needs = s.tasks.filter((t) => ["stuck", "needs-you", "needs-approval", "needs-escalation"].includes(t.status)).length;
+  const goalDone = s.goals.some((g) => g.status === "done");
+  const tile = (num, lbl, pct) => `<div class="card tile"><div class="num">${num}</div><div class="lbl">${lbl}</div>${pct != null ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
+  const scrollY = window.scrollY;
+  $("body").innerHTML = `
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="sub">${mig ? `Migrating <b>${esc(mig.from)}</b> → <b>${esc(mig.to)}</b>` : ""} · updated ${esc(s.generated)}</div>
+      <div class="row"><button id="loopbtn">${s.loop ? "Pause loop" : "Resume loop"}</button><button class="primary" id="prbtn" ${merged ? "" : "disabled"} title="${goalDone ? "" : "Migration still running; the PR will contain what has merged so far"}">Open pull request</button></div></div>
+    <section class="grid tiles" style="margin-bottom:16px">
+      ${tile(`${migrated}/${mods.filter((m) => m.migrate !== null).length || mods.length}`, "modules migrated", mods.length ? (100 * migrated) / Math.max(1, mods.filter((m) => m.migrate !== null).length) : 0)}
+      ${tile(`${pinned}/${toPin}`, "untested modules pinned", toPin ? (100 * pinned) / toPin : 0)}
+      ${tile(`${merged}/${s.tasks.length}`, `tasks merged into <span class="mono">${esc(s.integration)}</span>`, s.tasks.length ? (100 * merged) / s.tasks.length : 0)}
+      ${tile(s.total_calls, `model calls · ${s.total_calls ? Math.round((100 * nem) / s.total_calls) : 0}% Nemotron`)}
+      ${tile(needs, needs === 1 ? "task needs you or the planner" : "tasks need you or the planner")}
+      ${tile(s.tasks.filter((t) => t.flaky).length, "flaky tests caught")}
+    </section>
+    <section class="grid two">
+      <div class="card"><h2>Modules</h2><div class="scroll"><table>${mods.length ? `<tr><th>Module</th><th>Lines</th><th>Pinned</th><th>Migrated</th><th>Risk</th></tr>` + mods.map((m) => `<tr><td class="mono">${esc(m.path)}</td><td>${m.lines}</td><td>${m.pin === null ? (m.tested ? '<span class="muted">had tests</span>' : statusBadge(null)) : statusBadge(m.pin)}</td><td>${statusBadge(m.migrate)}</td><td class="muted">${esc(m.risk)}</td></tr>`).join("") : '<tr><td class="empty">No MIGRATION.md yet.</td></tr>'}</table></div></div>
+      <div class="card"><h2>Model calls</h2><div class="legend"><span><i style="background:var(--series-1)"></i>NVIDIA Nemotron</span><span><i style="background:var(--series-2)"></i>Other open models</span></div>
+        <div class="chart" id="chart">${s.models.length ? s.models.map((m, i) => `<div class="crow" data-i="${i}"><div class="name mono" title="${esc(m.model)}">${esc(m.model)}</div><div><div class="fill" style="width:${(100 * m.calls) / Math.max(1, ...s.models.map((x) => x.calls))}%;background:var(${m.tier.startsWith("Nemotron") ? "--series-1" : "--series-2"})"></div></div><div class="val">${m.calls}</div></div>`).join("") : '<div class="empty">No calls yet.</div>'}</div>
+        <details style="margin-top:10px"><summary class="muted">Show as table</summary><table><tr><th>Model</th><th>Calls</th><th>Errors</th><th>Avg s</th></tr>${s.models.map((m) => `<tr><td class="mono">${esc(m.model)}</td><td>${m.calls}</td><td>${m.errors}</td><td>${Math.round(m.seconds / Math.max(1, m.calls))}</td></tr>`).join("")}</table></details></div>
+    </section>
+    <h2>Tasks</h2>
+    <section class="board">${GROUPS.map(([name, sts]) => { const ts = s.tasks.filter((t) => sts.includes(t.status)); return `<div class="col"><h3><span>${name}</span><span>${ts.length}</span></h3>${ts.map((t) => `<button class="tcard${t.id === selected ? " sel" : ""}" data-id="${t.id}"><div class="chips"><span class="mono">${t.id}</span><span class="badge">${esc(t.type)}</span>${t.risk === "high" ? '<span class="badge s-warn"><span class="dot"></span>! high risk</span>' : ""}${t.flaky ? '<span class="badge s-warn"><span class="dot"></span>! flaky</span>' : ""}</div><div class="t">${esc(t.title)}</div><div class="chips">${statusBadge(t.status)} ${gateChips(t.gates)}</div></button>`).join("") || '<div class="empty">—</div>'}</div>`; }).join("")}</section>
+    <section class="card" id="detail" hidden></section>
+    <section class="grid two"><div class="card"><h2>Orchestrator decisions (${esc(s.orchestrator || "")})</h2><div class="feed mono">${s.decisions.length ? s.decisions.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("") : '<div class="empty">No wakes yet.</div>'}</div></div>
+      <div class="card"><h2>Who does what</h2><table>${Object.entries(s.roles).map(([r, m]) => `<tr><td>${esc(r)}</td><td class="mono">${esc(m)}</td></tr>`).join("")}</table></div></section>`;
+  window.scrollTo(0, scrollY);
+  document.querySelectorAll("#chart .crow").forEach((row) => { const m = s.models[row.dataset.i]; row.onmousemove = (e) => { const t = $("tip"); t.style.display = "block"; t.style.left = e.clientX + 12 + "px"; t.style.top = e.clientY + 12 + "px"; t.innerHTML = `<b>${esc(m.model)}</b><br>${esc(m.tier)}<br>${m.calls} calls · ${m.errors} errors · avg ${Math.round(m.seconds / Math.max(1, m.calls))}s`; }; row.onmouseleave = () => ($("tip").style.display = "none"); });
+  document.querySelectorAll(".tcard").forEach((b) => (b.onclick = () => { selected = b.dataset.id; dashboardStep(p); }));
+  $("loopbtn").onclick = async () => { await api(`projects/${p.id}/loop`, { action: s.loop ? "stop" : "start" }); dashboardStep(p); };
+  $("prbtn").onclick = async () => { if (!confirm("Push the merged migration as a new branch to the repo's GitHub remote and open a pull request?")) return; const log = document.createElement("pre"); log.className = "log mono"; $("body").prepend(log); const j = await waitJob(await api(`projects/${p.id}/pull-request`, {}), log); if (j.status === "done") toast("Pull request opened: " + j.result.url); else toast("Could not open the pull request; see the log"); };
+  if (selected) showDetail(p, s.tasks.find((t) => t.id === selected));
+  timer = setTimeout(() => { if (!document.activeElement || !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) dashboardStep(p); else timer = setTimeout(() => dashboardStep(p), 5000); }, 6000);
+}
+async function showDetail(p, t) {
+  const el = $("detail"); if (!t) return; el.hidden = false;
+  const v = Object.entries(t.verdicts).filter(([, x]) => x).map(([k, x]) => `${k}: <b>${x === "PASS" ? "✓ " : ""}${esc(x)}</b>`).join(" · ") || '<span class="muted">none yet</span>';
+  const acts = t.status === "needs-approval" ? ["approve", "reject"] : ["stuck", "needs-you", "needs-escalation", "conflict", "queued"].includes(t.status) ? ["requeue", "park", "drop"] : [];
+  el.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${t.id} · ${esc(t.title)}</h2><div class="chips">${statusBadge(t.status)}<button class="link" id="close">Close</button></div></div>
+    ${acts.length ? `<div class="row" style="margin:12px 0"><input id="hint" placeholder="${t.status === "needs-approval" ? "Reason (for reject)" : "Hint or reason"}">${acts.map((a) => `<button data-act="${a}" class="${a === "approve" || a === "requeue" ? "primary" : a === "drop" ? "danger" : ""}">${a[0].toUpperCase() + a.slice(1)}</button>`).join("")}</div>` : ""}
+    <dl class="kv"><dt>Type / risk</dt><dd>${esc(t.type)} / ${esc(t.risk)}</dd><dt>Files</dt><dd class="mono">${esc(t.files)}</dd>${t.after ? `<dt>After</dt><dd class="mono">${esc(t.after)}</dd>` : ""}<dt>Gates</dt><dd class="chips">${gateChips(t.gates) || '<span class="muted">not run yet</span>'}</dd><dt>Verdicts</dt><dd>${v}</dd>${t.flaky ? `<dt>Flaky test</dt><dd><pre>${esc(t.flaky_note || "Diagnosis pending")}</pre></dd>` : ""}</dl>
+    <div class="grid two"><div><h2>Brief</h2><pre style="max-height:320px;overflow:auto">${esc(t.brief)}</pre></div><div><h2>Model calls</h2><table>${t.calls.map((c) => `<tr><td>${esc(c.role)}</td><td class="mono">${esc(c.model)}</td><td>${c.rc ? `<span class="badge s-crit"><span class="dot"></span>✕ exit ${c.rc}</span>` : c.seconds + "s"}</td></tr>`).join("") || '<tr><td class="muted">none yet</td></tr>'}</table></div></div>
+    <h2 style="margin-top:16px">Log</h2><pre class="mono">${esc(t.log.join("\n"))}</pre>
+    <h2 style="margin-top:16px">Diff</h2><div class="diff mono" id="diff"><div class="empty">Loading…</div></div>`;
+  $("close").onclick = () => { selected = null; el.hidden = true; };
+  el.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => { try { await api(`projects/${p.id}/tasks/${t.id}/${b.dataset.act}`, { text: $("hint").value }); toast(`${t.id}: ${b.dataset.act} done`); dashboardStep(p); } catch (e) { toast(e.message); } }));
+  const { diff } = await api(`projects/${p.id}/diff/${t.id}`).catch(() => ({ diff: "" }));
+  $("diff").innerHTML = diff ? diff.split("\n").map((l) => { const c = l.startsWith("diff --git") ? "file" : l.startsWith("@@") ? "hunk" : l.startsWith("+") && !l.startsWith("+++") ? "add" : l.startsWith("-") && !l.startsWith("---") ? "del" : ""; return `<div class="${c}">${esc(l) || " "}</div>`; }).join("") : '<div class="empty">No diff yet.</div>';
+}
+route();
+</script>
+</body>
+</html>
